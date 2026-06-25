@@ -1,4 +1,4 @@
-:root {
+:root, [data-theme="dark"] {
   /* Палитра: сланцево-тёмный интерфейс GIS + водный акцент */
   --bg:          #0f1720;
   --panel:       #18232f;
@@ -8,6 +8,7 @@
   --text-dim:    #8b9bab;
   --accent:      #2dd4bf;   /* бирюзово-водный */
   --accent-2:    #38bdf8;
+  --accent-text: #04342c;   /* текст на акцентном фоне */
 
   /* Категории состояния */
   --c-normal:    #22c55e;   /* зелёный — исправно */
@@ -16,6 +17,26 @@
   --c-critical:  #ef4444;   /* красный — аварийное */
 
   --shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+
+[data-theme="light"] {
+  /* Светлая тема */
+  --bg:          #f1f5f9;
+  --panel:       #ffffff;
+  --panel-2:     #f1f5f9;
+  --border:      #d8e0e8;
+  --text:        #1a2530;
+  --text-dim:    #647488;
+  --accent:      #0d9488;   /* более тёмный бирюзовый для контраста на белом */
+  --accent-2:    #0284c7;
+  --accent-text: #ffffff;
+
+  --c-normal:    #16a34a;
+  --c-watch:     #ca8a04;
+  --c-repair:    #ea580c;
+  --c-critical:  #dc2626;
+
+  --shadow: 0 4px 20px rgba(100,116,139,0.18);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -48,7 +69,7 @@ button {
   border-radius: 8px;
 }
 .leaflet-popup-tip { background: var(--panel-2); }
-.leaflet-container { background: #0a0f14; }
+.leaflet-container { background: var(--panel-2); }
 
 /* Адаптивность */
 .app-shell { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
