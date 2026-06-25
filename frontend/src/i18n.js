@@ -141,6 +141,92 @@ export const TRANSLATIONS = {
     // Theme
     themeDark: "Тёмная тема",
     themeLight: "Светлая тема",
+
+    // Live search
+    searchPlaceholder: "Поиск объекта…",
+    searchNoResults: "Ничего не найдено",
+
+    // Header stats
+    statCritical: "аварийных",
+    statRepair: "ремонт",
+    statThreat: "под угрозой",
+
+    // Top-5 dangerous
+    top5Title: "Топ-5 самых опасных",
+    top5Show: "Топ-5 опасных",
+    top5Hide: "Скрыть топ-5",
+
+    // Legend
+    legendTitle: "Состояние объектов",
+
+    // Fullscreen
+    fullscreenOn: "На весь экран",
+    fullscreenOff: "Выйти из полноэкранного",
+
+    // Share
+    shareObject: "Поделиться",
+    shareCopied: "Ссылка скопирована!",
+
+    // Threat banner
+    threatBanner: "Прогноз: {n} объектов перейдут в аварийное состояние за 10 лет",
+
+    // Add object
+    addObject: "Добавить объект",
+    addObjectTitle: "Новый объект",
+    addObjectHint: "Кликните на карте, чтобы выбрать местоположение",
+    addObjectName: "Наименование",
+    addObjectType: "Тип",
+    addObjectYear: "Год постройки",
+    addObjectState: "Тех. состояние",
+    addObjectCapacity: "Пропускная способность (м³/с)",
+    addObjectWear: "Износ (0–1)",
+    addObjectDistrict: "Район",
+    addObjectCoords: "Координаты",
+    addObjectSave: "Создать объект",
+    addObjectCancel: "Отмена",
+    addObjectClickMap: "Кликните на карте",
+    addObjectCreated: "Объект создан!",
+    stateGood: "Удовлетворительное",
+    stateBad: "Неудовлетворительное",
+
+    // Inspections journal
+    inspTitle: "Журнал осмотров",
+    inspAdd: "Добавить осмотр",
+    inspDate: "Дата",
+    inspInspector: "Инспектор",
+    inspState: "Выявленное состояние",
+    inspNotes: "Примечания",
+    inspSave: "Сохранить",
+    inspCancel: "Отмена",
+    inspEmpty: "Осмотров пока нет",
+    inspRecalc: "Риск пересчитан после осмотра",
+    inspNoChange: "Без изменения состояния",
+
+    // Excel export
+    exportExcel: "Экспорт в Excel",
+
+    // Overdue inspections
+    overdueTitle: "Просроченные осмотры",
+    overdueBanner: "просрочено осмотров",
+    overdueDays: "дн. просрочки",
+    overdueShow: "Просрочка",
+    overdueClose: "Закрыть",
+    overdueEmpty: "Нет просроченных осмотров",
+    overdueExport: "Экспорт плана осмотров",
+
+    // Photo & Vision
+    photoTitle: "Фотографии объекта",
+    photoUpload: "Загрузить фото",
+    photoAnalyze: "Анализ ИИ",
+    photoAnalyzing: "ИИ анализирует снимок…",
+    photoNoPhotos: "Фотографий пока нет",
+    photoVisionResult: "Результат анализа Claude Vision",
+    photoDetectedType: "Тип объекта",
+    photoDetectedState: "Состояние",
+    photoDetectedDefects: "Обнаруженные дефекты",
+    photoConfidence: "Уверенность",
+    photoError: "Не удалось проанализировать фото",
+    photoAddFirst: "Сначала загрузите фотографию",
   },
 
   kz: {
@@ -272,6 +358,80 @@ export const TRANSLATIONS = {
 
     themeDark: "Қараңғы тақырып",
     themeLight: "Жарық тақырып",
+
+    searchPlaceholder: "Нысанды іздеу…",
+    searchNoResults: "Ештеңе табылмады",
+
+    statCritical: "апаттық",
+    statRepair: "жөндеу",
+    statThreat: "қауіп астында",
+
+    top5Title: "Ең қауіпті 5 нысан",
+    top5Show: "Қауіпті 5",
+    top5Hide: "5-ті жасыру",
+
+    legendTitle: "Нысандардың жай-күйі",
+
+    fullscreenOn: "Толық экран",
+    fullscreenOff: "Толық экраннан шығу",
+
+    shareObject: "Бөлісу",
+    shareCopied: "Сілтеме көшірілді!",
+
+    threatBanner: "Болжам: {n} нысан 10 жылда апаттық жағдайға өтеді",
+
+    addObject: "Нысан қосу",
+    addObjectTitle: "Жаңа нысан",
+    addObjectHint: "Орналасуын таңдау үшін картаны басыңыз",
+    addObjectName: "Атауы",
+    addObjectType: "Түрі",
+    addObjectYear: "Салынған жылы",
+    addObjectState: "Техникалық жай-күйі",
+    addObjectCapacity: "Өткізу қабілеті (м³/с)",
+    addObjectWear: "Тозу (0–1)",
+    addObjectDistrict: "Аудан",
+    addObjectCoords: "Координаттар",
+    addObjectSave: "Нысанды құру",
+    addObjectCancel: "Болдырмау",
+    addObjectClickMap: "Картаны басыңыз",
+    addObjectCreated: "Нысан құрылды!",
+    stateGood: "Қанағаттанарлық",
+    stateBad: "Қанағаттанарлықсыз",
+
+    inspTitle: "Тексеру журналы",
+    inspAdd: "Тексеру қосу",
+    inspDate: "Күні",
+    inspInspector: "Инспектор",
+    inspState: "Анықталған жай-күй",
+    inspNotes: "Ескертпелер",
+    inspSave: "Сақтау",
+    inspCancel: "Болдырмау",
+    inspEmpty: "Әзірге тексерулер жоқ",
+    inspRecalc: "Тексеруден кейін қауіп қайта есептелді",
+    inspNoChange: "Жай-күй өзгерген жоқ",
+
+    exportExcel: "Excel-ге экспорттау",
+
+    overdueTitle: "Мерзімі өткен тексерулер",
+    overdueBanner: "тексеру мерзімі өтті",
+    overdueDays: "күн кешіктірілді",
+    overdueShow: "Мерзімі өткен",
+    overdueClose: "Жабу",
+    overdueEmpty: "Мерзімі өткен тексерулер жоқ",
+    overdueExport: "Тексеру жоспарын экспорттау",
+
+    photoTitle: "Нысан фотосуреттері",
+    photoUpload: "Фото жүктеу",
+    photoAnalyze: "ЖИ талдауы",
+    photoAnalyzing: "ЖИ суретті талдауда…",
+    photoNoPhotos: "Әзірге фотосуреттер жоқ",
+    photoVisionResult: "Claude Vision талдау нәтижесі",
+    photoDetectedType: "Нысан түрі",
+    photoDetectedState: "Жай-күйі",
+    photoDetectedDefects: "Анықталған ақаулар",
+    photoConfidence: "Сенімділік",
+    photoError: "Фотоны талдау мүмкін болмады",
+    photoAddFirst: "Алдымен фотосурет жүктеңіз",
   },
 
   en: {
@@ -403,6 +563,80 @@ export const TRANSLATIONS = {
 
     themeDark: "Dark theme",
     themeLight: "Light theme",
+
+    searchPlaceholder: "Search object…",
+    searchNoResults: "Nothing found",
+
+    statCritical: "critical",
+    statRepair: "repair",
+    statThreat: "at risk",
+
+    top5Title: "Top-5 most dangerous",
+    top5Show: "Top-5 risky",
+    top5Hide: "Hide top-5",
+
+    legendTitle: "Object condition",
+
+    fullscreenOn: "Fullscreen",
+    fullscreenOff: "Exit fullscreen",
+
+    shareObject: "Share",
+    shareCopied: "Link copied!",
+
+    threatBanner: "Forecast: {n} objects will become critical within 10 years",
+
+    addObject: "Add object",
+    addObjectTitle: "New object",
+    addObjectHint: "Click on the map to select location",
+    addObjectName: "Name",
+    addObjectType: "Type",
+    addObjectYear: "Year built",
+    addObjectState: "Tech. condition",
+    addObjectCapacity: "Capacity (m³/s)",
+    addObjectWear: "Wear (0–1)",
+    addObjectDistrict: "District",
+    addObjectCoords: "Coordinates",
+    addObjectSave: "Create object",
+    addObjectCancel: "Cancel",
+    addObjectClickMap: "Click on the map",
+    addObjectCreated: "Object created!",
+    stateGood: "Satisfactory",
+    stateBad: "Unsatisfactory",
+
+    inspTitle: "Inspection log",
+    inspAdd: "Add inspection",
+    inspDate: "Date",
+    inspInspector: "Inspector",
+    inspState: "Found condition",
+    inspNotes: "Notes",
+    inspSave: "Save",
+    inspCancel: "Cancel",
+    inspEmpty: "No inspections yet",
+    inspRecalc: "Risk recalculated after inspection",
+    inspNoChange: "No state change",
+
+    exportExcel: "Export to Excel",
+
+    overdueTitle: "Overdue inspections",
+    overdueBanner: "overdue inspections",
+    overdueDays: "days overdue",
+    overdueShow: "Overdue",
+    overdueClose: "Close",
+    overdueEmpty: "No overdue inspections",
+    overdueExport: "Export inspection plan",
+
+    photoTitle: "Object photos",
+    photoUpload: "Upload photo",
+    photoAnalyze: "AI analysis",
+    photoAnalyzing: "AI is analyzing the image…",
+    photoNoPhotos: "No photos yet",
+    photoVisionResult: "Claude Vision analysis result",
+    photoDetectedType: "Object type",
+    photoDetectedState: "Condition",
+    photoDetectedDefects: "Detected defects",
+    photoConfidence: "Confidence",
+    photoError: "Failed to analyze photo",
+    photoAddFirst: "Upload a photo first",
   },
 };
 

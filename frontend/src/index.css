@@ -77,6 +77,14 @@ button {
 .tab-bar { display: flex; gap: 8px; }
 
 /* Боковые панели сворачиваются на узких экранах */
+@media (max-width: 1200px) {
+  .header-stats { display: none !important; }
+}
+
+@media (max-width: 1050px) {
+  .header-search { display: none !important; }
+}
+
 @media (max-width: 900px) {
   .sidebar-left { width: 240px !important; }
   .panel-right { width: 280px !important; }
@@ -107,6 +115,8 @@ button {
   }
   .tab-labels { display: none; }
   .header-subtitle { display: none; }
+  .header-search { display: none; }
+  .header-stats { display: none; }
   .dashboard-grid-2 { grid-template-columns: 1fr !important; }
 }
 
@@ -133,4 +143,107 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 /* Уважение к prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   *, button { transition: none !important; }
+}
+
+/* ─────────── Анимации (wow-эффекты) ─────────── */
+
+/* Плавное появление маркеров на карте */
+@keyframes markerPop {
+  0% { opacity: 0; transform: scale(0); }
+  60% { transform: scale(1.2); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Анимация заполнения прогресс-бара риска */
+@keyframes fillBar {
+  from { width: 0; }
+}
+.risk-bar-fill {
+  animation: fillBar 0.8s ease-out;
+}
+
+/* Пульсация для аварийных объектов */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.pulse-critical {
+  animation: pulse 2s infinite;
+}
+
+/* Плавное появление панелей */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.panel-right {
+  animation: slideIn 0.25s ease-out;
+}
+
+/* Появление модалок */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Мигающий баннер угрозы */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(239,68,68,0.4); }
+  50% { box-shadow: 0 0 16px rgba(239,68,68,0.7); }
+}
+.threat-glow {
+  animation: glow 2.5s infinite;
+}
+
+/* Спиннер загрузки */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+/* Hover-подъём карточек */
+.lift-hover {
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.lift-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+/* Полноэкранный режим карты */
+.map-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 5000 !important;
+}
+
+/* Переключатель слоёв карты (схема/спутник) */
+.leaflet-control-layers {
+  background: var(--panel) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow) !important;
+  color: var(--text) !important;
+}
+.leaflet-control-layers-expanded {
+  padding: 10px 14px !important;
+}
+.leaflet-control-layers label {
+  color: var(--text) !important;
+  font-size: 13px !important;
+  margin: 4px 0 !important;
+}
+.leaflet-control-layers-separator {
+  border-top: 1px solid var(--border) !important;
 }
