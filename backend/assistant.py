@@ -5,8 +5,8 @@ import urllib.request
 from backend.database import get_db
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-MODEL = "claude-haiku-4-5-20251001"
+ANTHROPIC_URL = "https://openrouter.ai/api/v1/chat/completions"
+MODEL = "anthropic/claude-haiku-4-5"
 
 # Описание фильтра, который Claude заполняет на основе запроса пользователя.
 # Claude видит схему и сам решает, какие поля установить.
@@ -90,23 +90,27 @@ def _apply_filter(args: dict) -> list:
 
 
 def _call_claude(messages: list, tools=None) -> dict:
-    """Вызов Claude API через стандартную библиотеку (без внешних зависимостей)."""
+    """Вызов через OpenRouter API (OpenAI-совместимый формат)."""
     payload = {
         "model": MODEL,
         "max_tokens": 1024,
-        "system": SYSTEM_PROMPT,
-        "messages": messages,
+        "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + messages,
     }
     if tools:
-        payload["tools"] = tools
+        payload["tools"] = [{"type": "function", "function": {
+            "name": t["name"],
+            "description": t["description"],
+            "parameters": t["input_schema"],
+        }} for t in tools]
+        payload["tool_choice"] = "auto"
 
     req = urllib.request.Request(
         ANTHROPIC_URL,
         data=json.dumps(payload).encode("utf-8"),
         headers={
             "content-type": "application/json",
-            "x-api-key": ANTHROPIC_API_KEY,
-            "anthropic-version": "2023-06-01",
+            "authorization": f"Bearer {ANTHROPIC_API_KEY}",
+            "http-referer": "https://hydrocadastre.kz",
         },
         method="POST",
     )
@@ -128,42 +132,42 @@ def ask(user_message: str) -> dict:
 
     messages = [{"role": "user", "content": user_message}]
 
-    # Первый вызов — Claude решает, какой фильтр применить
-    resp = _call_claude(messages, tools=[FILTER_TOOL])
+    try:
+        resp = _call_claude(messages, tools=[FILTER_TOOL])
+    except Exception as e:
+        return {"answer": f"Ошибка запроса: {e}", "objects": [], "filter": None}
 
     filter_args = None
     matched = []
+    answer = ""
 
-    # Ищем вызов инструмента
-    for block in resp.get("content", []):
-        if block.get("type") == "tool_use" and block.get("name") == "filter_objects":
-            filter_args = block["input"]
-            matched = _apply_filter(filter_args)
+    choice = resp.get("choices", [{}])[0]
+    msg = choice.get("message", {})
 
-            # Возвращаем результат Claude, чтобы он сформулировал ответ
-            messages.append({"role": "assistant", "content": resp["content"]})
-            messages.append({
-                "role": "user",
-                "content": [{
-                    "type": "tool_result",
-                    "tool_use_id": block["id"],
-                    "content": json.dumps({
-                        "found": len(matched),
-                        "objects": matched[:10],
-                    }, ensure_ascii=False),
-                }],
-            })
-            break
+    # Проверяем tool_calls (OpenRouter формат)
+    tool_calls = msg.get("tool_calls")
+    if tool_calls:
+        tc = tool_calls[0]
+        filter_args = json.loads(tc["function"]["arguments"])
+        matched = _apply_filter(filter_args)
 
-    if filter_args is not None:
-        final = _call_claude(messages)
-        answer = "".join(
-            b.get("text", "") for b in final.get("content", []) if b.get("type") == "text"
-        )
+        # Второй вызов — Claude формулирует ответ на русском
+        messages.append({"role": "assistant", "content": None, "tool_calls": tool_calls})
+        messages.append({
+            "role": "tool",
+            "tool_call_id": tc["id"],
+            "content": json.dumps({
+                "found": len(matched),
+                "objects": matched[:10],
+            }, ensure_ascii=False),
+        })
+
+        try:
+            final = _call_claude(messages)
+            answer = final.get("choices", [{}])[0].get("message", {}).get("content", "")
+        except Exception:
+            answer = f"Найдено объектов: {len(matched)}."
     else:
-        # Claude ответил без фильтрации (общий вопрос)
-        answer = "".join(
-            b.get("text", "") for b in resp.get("content", []) if b.get("type") == "text"
-        )
+        answer = msg.get("content", "Не удалось обработать запрос.")
 
     return {"answer": answer.strip(), "objects": matched, "filter": filter_args}
