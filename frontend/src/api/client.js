@@ -55,4 +55,13 @@ export async function fetchForecast(objectId) {
   return data;
 }
 
+export async function discoverObjects(limit = 50) {
+  const { data } = await client.get("/discover", { params: { limit } });
+  return data;
+}
+
+export function reportUrl(lang = "ru") {
+  return `${API_BASE}/report?lang=${lang}`;
+}
+
 export default client;
