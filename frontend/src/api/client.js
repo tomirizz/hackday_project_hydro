@@ -60,8 +60,54 @@ export async function discoverObjects(limit = 50) {
   return data;
 }
 
+export async function createObject(payload) {
+  const { data } = await client.post("/objects", payload);
+  return data;
+}
+
+export async function fetchInspections(objectId) {
+  const { data } = await client.get(`/objects/${objectId}/inspections`);
+  return data;
+}
+
+export async function fetchOverdue() {
+  const { data } = await client.get("/inspections/overdue");
+  return data;
+}
+
+export async function fetchPhotos(objectId) {
+  const { data } = await client.get(`/objects/${objectId}/photos`);
+  return data;
+}
+
+export async function uploadPhoto(objectId, imageBase64, mediaType) {
+  const { data } = await client.post(`/objects/${objectId}/photos`, {
+    image_base64: imageBase64,
+    media_type: mediaType,
+    analyze: true,
+  });
+  return data;
+}
+
+export function photoUrl(filename) {
+  return `${API_BASE}/photos/${filename}`;
+}
+
+export async function addInspection(objectId, payload) {
+  const { data } = await client.post(`/objects/${objectId}/inspections`, payload);
+  return data;
+}
+
 export function reportUrl(lang = "ru") {
   return `${API_BASE}/report?lang=${lang}`;
+}
+
+export function excelUrl(category = null, typeCode = null) {
+  const params = new URLSearchParams();
+  if (category) params.set("category", category);
+  if (typeCode) params.set("type_code", typeCode);
+  const qs = params.toString();
+  return `${API_BASE}/export/excel${qs ? "?" + qs : ""}`;
 }
 
 export default client;
