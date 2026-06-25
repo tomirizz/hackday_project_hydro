@@ -339,15 +339,15 @@ def forecast_region(years: int = Query(10, le=50)):
 # ── /report (PDF-отчёт для министерства) ─────────────────────────────────────
 
 @app.get("/report")
-def report():
+def report(lang: str = Query("ru", description="ru | kz | en")):
     """
     Генерирует и отдаёт PDF-отчёт о состоянии гидротехнических сооружений
-    региона: сводка, аварийные объекты, план осмотров.
+    региона на выбранном языке: сводка, аварийные объекты, план осмотров.
     """
     from backend.report import generate_report
-    pdf = generate_report()
+    pdf = generate_report(lang)
     return Response(
         content=pdf,
         media_type="application/pdf",
-        headers={"Content-Disposition": 'attachment; filename="hydro_report.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="hydro_report_{lang}.pdf"'},
     )
