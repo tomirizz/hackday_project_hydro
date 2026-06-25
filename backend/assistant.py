@@ -46,8 +46,31 @@ SYSTEM_PROMPT = (
     "области. Пользователь задаёт вопросы на естественном языке. Твоя задача — "
     "вызвать filter_objects с подходящими параметрами. После получения "
     "результатов кратко опиши находку на русском: сколько объектов, какие "
-    "самые проблемные. Будь лаконичным."
+    "самые проблемные. Будь лаконичным. "
+    "ВАЖНО: пиши обычным текстом без markdown-разметки. Не используй звёздочки "
+    "для выделения (**жирный**), не используй маркированные списки со звёздочками "
+    "или дефисами. Только простой текст и, если нужно перечислить — через запятую "
+    "или с новой строки без символов-маркеров."
 )
+
+
+def _strip_markdown(text: str) -> str:
+    """Убирает markdown-разметку из ответа на случай если модель её добавила."""
+    import re
+    if not text:
+        return text
+    # **жирный** и *курсив* -> просто текст
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"\*(.+?)\*", r"\1", text)
+    text = re.sub(r"__(.+?)__", r"\1", text)
+    text = re.sub(r"`(.+?)`", r"\1", text)
+    # Маркеры списка в начале строк
+    text = re.sub(r"(?m)^\s*[\*\-•]\s+", "", text)
+    # ### заголовки
+    text = re.sub(r"(?m)^#+\s*", "", text)
+    # Оставшиеся одиночные звёздочки
+    text = text.replace("*", "")
+    return text.strip()
 
 
 def _apply_filter(args: dict) -> list:
@@ -170,4 +193,4 @@ def ask(user_message: str) -> dict:
     else:
         answer = msg.get("content", "Не удалось обработать запрос.")
 
-    return {"answer": answer.strip(), "objects": matched, "filter": filter_args}
+    return {"answer": _strip_markdown(answer.strip()), "objects": matched, "filter": filter_args}
