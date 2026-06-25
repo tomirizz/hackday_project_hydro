@@ -1,0 +1,115 @@
+:root {
+  /* Палитра: сланцево-тёмный интерфейс GIS + водный акцент */
+  --bg:          #0f1720;
+  --panel:       #18232f;
+  --panel-2:     #1f2d3a;
+  --border:      #2a3a48;
+  --text:        #e6edf3;
+  --text-dim:    #8b9bab;
+  --accent:      #2dd4bf;   /* бирюзово-водный */
+  --accent-2:    #38bdf8;
+
+  /* Категории состояния */
+  --c-normal:    #22c55e;   /* зелёный — исправно */
+  --c-watch:     #eab308;   /* жёлтый — наблюдение */
+  --c-repair:    #f97316;   /* оранжевый — ремонт */
+  --c-critical:  #ef4444;   /* красный — аварийное */
+
+  --shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono {
+  font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--panel); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* Leaflet popup тёмная тема */
+.leaflet-popup-content-wrapper {
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 8px;
+}
+.leaflet-popup-tip { background: var(--panel-2); }
+.leaflet-container { background: #0a0f14; }
+
+/* Адаптивность */
+.app-shell { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+.tab-bar { display: flex; gap: 8px; }
+
+/* Боковые панели сворачиваются на узких экранах */
+@media (max-width: 900px) {
+  .sidebar-left { width: 240px !important; }
+  .panel-right { width: 280px !important; }
+}
+
+@media (max-width: 680px) {
+  /* На мобильных панели становятся оверлеями поверх карты */
+  .sidebar-left {
+    position: absolute !important;
+    z-index: 1200;
+    height: 100%;
+    width: 85% !important;
+    max-width: 320px;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+    transform: translateX(-105%);
+    transition: transform 0.25s ease;
+  }
+  .sidebar-left[data-open="true"] {
+    transform: translateX(0);
+  }
+  .panel-right {
+    position: absolute !important;
+    right: 0; z-index: 1200;
+    height: 100%;
+    width: 90% !important;
+    max-width: 360px;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.5);
+  }
+  .tab-labels { display: none; }
+  .header-subtitle { display: none; }
+  .dashboard-grid-2 { grid-template-columns: 1fr !important; }
+}
+
+/* Кнопка-гамбургер для мобильных (скрыта на десктопе) */
+.mobile-toggle { display: none; }
+@media (max-width: 680px) {
+  .mobile-toggle {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 6; color: var(--text); width: 36px; height: 36px;
+  }
+}
+
+/* Плавные переходы для кнопок */
+button { transition: background 0.15s, border-color 0.15s, transform 0.05s; }
+button:active { transform: scale(0.97); }
+
+/* Фокус для доступности */
+button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Уважение к prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, button { transition: none !important; }
+}
