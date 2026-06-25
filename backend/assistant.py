@@ -6,7 +6,7 @@ from backend.database import get_db
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-MODEL = "claude-sonnet-4-6"
+MODEL = "claude-haiku-4-5-20251001"
 
 # Описание фильтра, который Claude заполняет на основе запроса пользователя.
 # Claude видит схему и сам решает, какие поля установить.
