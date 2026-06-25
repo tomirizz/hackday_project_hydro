@@ -19,7 +19,6 @@ function FlyTo({ target }) {
   return null;
 }
 
-// Перехват кликов по карте для режима добавления объекта
 function ClickCatcher({ active, onPick }) {
   useMapEvents({
     click(e) {
@@ -35,6 +34,7 @@ export default function MapView({
 }) {
   const { t } = useApp();
 
+  // Маркеры объектов — вне LayersControl, иначе react-leaflet v4 их скрывает
   const markers = useMemo(
     () =>
       objects.map((o) => (
@@ -42,7 +42,6 @@ export default function MapView({
           key={o.id}
           center={[o.lat, o.lon]}
           radius={selectedId === o.id ? 9 : 6}
-          className={o.category === "critical" ? "pulse-critical" : ""}
           pathOptions={{
             color: selectedId === o.id ? "#ffffff" : categoryColor(o.category),
             weight: selectedId === o.id ? 2 : 1,
@@ -103,8 +102,8 @@ export default function MapView({
       center={ZHAMBYL_CENTER}
       zoom={DEFAULT_ZOOM}
       style={{ height: "100%", width: "100%", cursor: pickMode ? "crosshair" : "" }}
-      preferCanvas={true}
     >
+      {/* Слои тайлов — схема и спутник */}
       <LayersControl position="topleft">
         <BaseLayer checked name="Схема (OSM)">
           <TileLayer
@@ -128,9 +127,12 @@ export default function MapView({
           />
         </BaseLayer>
       </LayersControl>
+
+      {/* Маркеры объектов — всегда поверх тайлов */}
       {!showHeat && markers}
       {discMarkers}
-      {/* Маркер выбранной точки при добавлении объекта */}
+
+      {/* Точка выбора при добавлении объекта */}
       {pickedCoords && (
         <CircleMarker
           center={[pickedCoords.lat, pickedCoords.lon]}
@@ -138,6 +140,7 @@ export default function MapView({
           pathOptions={{ color: "#2dd4bf", weight: 3, fillColor: "#2dd4bf", fillOpacity: 0.4 }}
         />
       )}
+
       <HeatLayer points={heatPoints} visible={showHeat} />
       <ClickCatcher active={pickMode} onPick={onPickCoords} />
       <FlyTo target={flyTarget} />

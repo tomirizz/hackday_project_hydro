@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  ComposedChart, Line,
+  ComposedChart, Line, RadarChart, Radar, PolarGrid,
+  PolarAngleAxis, PolarRadiusAxis,
 } from "recharts";
 import { fetchDashboard, reportUrl, excelUrl } from "../api/client";
 import { CATEGORIES } from "../constants";
@@ -10,23 +11,24 @@ import { useApp, catLabel } from "../AppContext";
 import { LANGUAGES } from "../i18n";
 import DrillModal from "./DrillModal";
 import AnimatedNumber from "./AnimatedNumber";
-import { FileDown, FileSpreadsheet } from "lucide-react";
+import { FileDown, FileSpreadsheet, AlertTriangle, TrendingUp, MapPin, Droplets } from "lucide-react";
 
 const card = { background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, padding: 16 };
 const cardTitle = {
   fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em",
   color: "var(--text-dim)", marginBottom: 14,
 };
-
 const CATEGORY_ORDER = ["normal", "watch", "repair", "critical"];
 
-function Metric({ label, value, suffix, accent, onClick, decimals = 0 }) {
+function Metric({ label, value, suffix, accent, sub, onClick, decimals = 0 }) {
   return (
     <div className="lift-hover" style={{ ...card, cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
       <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 6 }}>{label}</div>
       <div className="mono" style={{ fontSize: 26, fontWeight: 600, color: accent || "var(--text)" }}>
-        <AnimatedNumber value={value} decimals={decimals} /><span style={{ fontSize: 14, color: "var(--text-dim)" }}>{suffix}</span>
+        <AnimatedNumber value={value} decimals={decimals} />
+        <span style={{ fontSize: 14, color: "var(--text-dim)" }}>{suffix}</span>
       </div>
+      {sub && <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -63,84 +65,87 @@ export default function Dashboard() {
     "60–80": [60, 80], "80–100": [80, 100], "100+": [100, 999],
   };
   const ageData = ageOrder
-    .map((b) => data.age_histogram.find((h) => h.bucket === b))
+    .map((b) => data.age_histogram?.find((h) => h.bucket === b))
     .filter(Boolean)
     .map((h) => ({ bucket: h.bucket, count: h.count }));
 
-  const decadeData = data.by_decade.map((d) => ({
+  const decadeData = (data.by_decade || []).map((d) => ({
     decade: `${d.decade}s`,
     decadeNum: d.decade,
     count: d.count,
     risk: Math.round(d.avg_risk * 100),
   }));
 
-  // Обработчики кликов на графики
+  // Топ-5 опасных объектов из heat_points / или из by_category
+  const top5 = (data.heat_points || [])
+    .sort((a, b) => b[2] - a[2])
+    .slice(0, 5);
+
+  // Данные для радар-диаграммы качества системы
+  const radarData = [
+    { subject: "КПД системы", value: Math.round(m.avg_kpd * 100) },
+    { subject: "Исправных", value: Math.round((m.normal_count / m.total) * 100) },
+    { subject: "Под наблюд.", value: Math.round((m.watch_count / m.total) * 100) },
+    { subject: "Ремонт", value: 100 - Math.round((m.repair_count / m.total) * 100) },
+    { subject: "Аварийных", value: 100 - Math.round((m.critical_count / m.total) * 100) },
+  ];
+
   const onPieClick = (entry) => {
     if (!entry) return;
     setDrill({ type: "category", value: entry.cat, label: `${t("filterState")}: ${entry.name}` });
   };
   const onAgeClick = (entry) => {
-    if (!entry || !entry.bucket) return;
+    if (!entry?.bucket) return;
     setDrill({ type: "age", range: ageRanges[entry.bucket], label: `${t("dashByAge")}: ${entry.bucket} ${t("cardAgeYears")}` });
   };
   const onDecadeClick = (entry) => {
-    if (!entry || entry.decadeNum == null) return;
+    if (entry?.decadeNum == null) return;
     setDrill({ type: "decade", value: entry.decadeNum, label: `${t("cardYearBuilt")}: ${entry.decade}` });
   };
 
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%", position: "relative" }}>
+
+      {/* Заголовок + экспорт */}
       <div style={{ display: "flex", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
         <div style={{ fontSize: 15, fontWeight: 600 }}>{t("dashTitle")}</div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {/* Excel экспорт */}
-          <a
-            href={excelUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: "flex", alignItems: "center", gap: 5,
-              background: "#1d6f42", color: "#fff",
-              textDecoration: "none", borderRadius: 6, padding: "7px 11px",
-              fontSize: 12, fontWeight: 500,
-            }}
-          >
+          <a href={excelUrl()} target="_blank" rel="noopener noreferrer" style={{
+            display: "flex", alignItems: "center", gap: 5,
+            background: "#1d6f42", color: "#fff", textDecoration: "none",
+            borderRadius: 6, padding: "7px 11px", fontSize: 12, fontWeight: 500,
+          }}>
             <FileSpreadsheet size={13} /> {t("exportExcel")}
           </a>
-
-          {/* Выбор языка отчёта */}
           <span style={{ fontSize: 12, color: "var(--text-dim)" }}>PDF:</span>
           {LANGUAGES.map((l) => (
-            <a
-              key={l.code}
-              href={reportUrl(l.code)}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "flex", alignItems: "center", gap: 5,
-                background: l.code === lang ? "var(--accent)" : "var(--panel-2)",
-                color: l.code === lang ? "var(--accent-text)" : "var(--text)",
-                textDecoration: "none", borderRadius: 6, padding: "7px 11px",
-                fontSize: 12, fontWeight: 500, border: "1px solid var(--border)",
-              }}
-            >
+            <a key={l.code} href={reportUrl(l.code)} target="_blank" rel="noopener noreferrer" style={{
+              display: "flex", alignItems: "center", gap: 5,
+              background: l.code === lang ? "var(--accent)" : "var(--panel-2)",
+              color: l.code === lang ? "var(--accent-text)" : "var(--text)",
+              textDecoration: "none", borderRadius: 6, padding: "7px 11px",
+              fontSize: 12, fontWeight: 500, border: "1px solid var(--border)",
+            }}>
               <FileDown size={13} /> {l.label}
             </a>
           ))}
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
+      {/* Основные метрики */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
         <Metric label={t("dashTotal")} value={m.total} />
         <Metric label={t("dashAvgRisk")} value={m.avg_risk * 100} suffix="%" accent="var(--accent)" />
         <Metric label={t("dashCritical")} value={m.critical_count} accent="var(--c-critical)"
-                onClick={() => setDrill({ type: "category", value: "critical", label: `${t("filterState")}: ${t("cat_critical")}` })} />
+                sub={`${((m.critical_count/m.total)*100).toFixed(1)}% от всех`}
+                onClick={() => setDrill({ type: "category", value: "critical", label: t("cat_critical") })} />
         <Metric label={t("dashRepair")} value={m.repair_count} accent="var(--c-repair)"
-                onClick={() => setDrill({ type: "category", value: "repair", label: `${t("filterState")}: ${t("cat_repair")}` })} />
+                onClick={() => setDrill({ type: "category", value: "repair", label: t("cat_repair") })} />
         <Metric label={t("dashAvgKpd")} value={m.avg_kpd * 100} suffix="%" />
-        <Metric label={t("dashAvgAge")} value={m.avg_age} suffix={` ${t("dashAgeYears")}`} decimals={0} />
+        <Metric label={t("dashAvgAge")} value={m.avg_age} suffix={` ${t("dashAgeYears")}`} />
       </div>
 
+      {/* Первый ряд: пирог + возраст */}
       <div className="dashboard-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div style={card}>
           <div style={cardTitle}>{t("dashByState")}</div>
@@ -172,9 +177,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div style={card}>
+      {/* Второй ряд: десятилетия (широкий) */}
+      <div style={{ ...card, marginBottom: 16 }}>
         <div style={cardTitle}>{t("dashByDecade")}</div>
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={260}>
           <ComposedChart data={decadeData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="decade" tick={{ fill: "var(--text-dim)", fontSize: 11 }} />
@@ -188,6 +194,105 @@ export default function Dashboard() {
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Третий ряд: Топ-5 + Радар состояния системы */}
+      <div className="dashboard-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+
+        {/* Топ-5 самых опасных */}
+        <div style={card}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14 }}>
+            <AlertTriangle size={14} color="var(--c-critical)" />
+            <span style={{ ...cardTitle, marginBottom: 0 }}>{t("top5Title")}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {(data.top_critical || []).map((o, i) => (
+              <div key={o.id} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "8px 10px", background: "var(--panel-2)", borderRadius: 6,
+                borderLeft: `3px solid var(--c-critical)`,
+              }}>
+                <span className="mono" style={{ fontSize: 16, fontWeight: 700, color: "var(--c-critical)", width: 18 }}>
+                  {i + 1}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {o.name}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>
+                    <MapPin size={9} style={{ marginRight: 3 }} />{o.district_name}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div className="mono" style={{ fontSize: 14, fontWeight: 600, color: "var(--c-critical)" }}>
+                    {(o.risk_score * 100).toFixed(0)}%
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--text-dim)" }}>
+                    {o.year_built ? `${2026 - o.year_built} лет` : "—"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Радар-диаграмма состояния системы */}
+        <div style={card}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14 }}>
+            <Droplets size={14} color="var(--accent)" />
+            <span style={{ ...cardTitle, marginBottom: 0 }}>Состояние системы ГТС</span>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <RadarChart data={radarData}>
+              <PolarGrid stroke="var(--border)" />
+              <PolarAngleAxis dataKey="subject" tick={{ fill: "var(--text-dim)", fontSize: 10 }} />
+              <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "var(--text-dim)", fontSize: 9 }} />
+              <Radar name="Показатель" dataKey="value" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.2} />
+              <Tooltip contentStyle={tooltipStyle} />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Четвёртый ряд: прогноз угрозы */}
+      {data.region_forecast && (
+        <div style={{ ...card, marginBottom: 16, borderLeft: "4px solid var(--c-critical)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <TrendingUp size={16} color="var(--c-critical)" />
+            <span style={{ fontWeight: 600, fontSize: 14 }}>Прогноз деградации региона (10 лет)</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            <div style={{ background: "var(--panel-2)", borderRadius: 8, padding: "12px 16px", textAlign: "center" }}>
+              <div className="mono" style={{ fontSize: 28, fontWeight: 700, color: "var(--c-critical)" }}>
+                {data.region_forecast.will_become_critical}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 4 }}>
+                объектов станут аварийными
+              </div>
+            </div>
+            <div style={{ background: "var(--panel-2)", borderRadius: 8, padding: "12px 16px", textAlign: "center" }}>
+              <div className="mono" style={{ fontSize: 28, fontWeight: 700, color: "var(--c-repair)" }}>
+                {Math.round(((data.region_forecast.will_become_critical + m.critical_count) / m.total) * 100)}%
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 4 }}>
+                объектов будут аварийными к 2036 г.
+              </div>
+            </div>
+            <div style={{ background: "var(--panel-2)", borderRadius: 8, padding: "12px 16px", textAlign: "center" }}>
+              <div className="mono" style={{ fontSize: 28, fontWeight: 700, color: "var(--accent)" }}>
+                {Math.round(m.avg_kpd * 100)}%
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 4 }}>
+                средний КПД сейчас
+              </div>
+            </div>
+          </div>
+          <div style={{ marginTop: 10, fontSize: 12, color: "var(--text-dim)", lineHeight: 1.5 }}>
+            При текущих темпах деградации (средняя потеря КПД: {((m.avg_kpd_design - m.avg_kpd) * 100 || 13).toFixed(0)}%
+            за {Math.round(m.avg_age)} лет) система требует первоочередного вмешательства
+            на {m.critical_count + m.repair_count} объектах.
+          </div>
+        </div>
+      )}
 
       <DrillModal drill={drill} onClose={() => setDrill(null)} />
     </div>
