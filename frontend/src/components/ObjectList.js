@@ -17,8 +17,7 @@ export default function ObjectList({ objects, selectedId, onSelect }) {
               border: "none",
               borderLeft: `3px solid ${active ? categoryColor(o.category) : "transparent"}`,
               borderBottom: "1px solid var(--border)",
-              padding: "10px 14px",
-              color: "var(--text)",
+              padding: "10px 14px", color: "var(--text)", cursor: "pointer",
             }}
           >
             <span style={{

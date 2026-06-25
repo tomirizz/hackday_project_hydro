@@ -4,16 +4,10 @@ import {
   ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import { fetchForecast } from "../api/client";
-
-const tooltipStyle = {
-  background: "var(--panel-2)",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  color: "var(--text)",
-  fontSize: 12,
-};
+import { useApp } from "../AppContext";
 
 export default function ForecastChart({ objectId }) {
+  const { t } = useApp();
   const [data, setData] = useState(null);
 
   useEffect(() => {
@@ -22,13 +16,18 @@ export default function ForecastChart({ objectId }) {
     fetchForecast(objectId).then(setData).catch(() => {});
   }, [objectId]);
 
+  const tooltipStyle = {
+    background: "var(--panel-2)", border: "1px solid var(--border)",
+    borderRadius: 6, color: "var(--text)", fontSize: 12,
+  };
+
   if (!data) {
-    return <div style={{ fontSize: 12, color: "var(--text-dim)", padding: "8px 0" }}>Загрузка прогноза…</div>;
+    return <div style={{ fontSize: 12, color: "var(--text-dim)", padding: "8px 0" }}>{t("forecastLoading")}</div>;
   }
 
-  const chartData = data.trajectory.map((t) => ({
-    year: t.year,
-    risk: Math.round(t.risk * 100),
+  const chartData = data.trajectory.map((tr) => ({
+    year: tr.year,
+    risk: Math.round(tr.risk * 100),
   }));
 
   return (
@@ -36,13 +35,11 @@ export default function ForecastChart({ objectId }) {
       <div style={{ fontSize: 13, marginBottom: 8 }}>
         {data.critical_year ? (
           <span>
-            Прогноз перехода в аварийное состояние: <strong style={{ color: "#ef4444" }}>{data.critical_year} г.</strong>
-            {" "}(через {data.years_to_critical} лет)
+            {t("forecastCritical")}: <strong style={{ color: "var(--c-critical)" }}>{data.critical_year}</strong>
+            {" "}({t("forecastInYears")} {data.years_to_critical} {t("forecastYears")})
           </span>
         ) : (
-          <span style={{ color: "var(--text-dim)" }}>
-            При текущих темпах объект не достигнет аварийного состояния в ближайшие 25 лет.
-          </span>
+          <span style={{ color: "var(--text-dim)" }}>{t("forecastSafe")}</span>
         )}
       </div>
 
@@ -57,9 +54,9 @@ export default function ForecastChart({ objectId }) {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="year" tick={{ fill: "var(--text-dim)", fontSize: 10 }} interval={4} />
           <YAxis domain={[0, 100]} tick={{ fill: "var(--text-dim)", fontSize: 10 }} />
-          <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, "Риск"]} />
+          <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, t("drillRisk")]} />
           <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="4 4"
-                         label={{ value: "Авария", fill: "#ef4444", fontSize: 10, position: "insideTopRight" }} />
+                         label={{ value: t("forecastThreshold"), fill: "#ef4444", fontSize: 10, position: "insideTopRight" }} />
           <Area dataKey="risk" stroke="#ef4444" strokeWidth={2} fill="url(#riskGrad)" />
         </AreaChart>
       </ResponsiveContainer>

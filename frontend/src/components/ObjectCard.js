@@ -1,6 +1,7 @@
 import React from "react";
-import { categoryColor, categoryLabel } from "../constants";
+import { categoryColor } from "../constants";
 import { X } from "lucide-react";
+import { useApp, catLabel, typeLabel } from "../AppContext";
 import ForecastChart from "./ForecastChart";
 
 const row = (label, value, unit = "") => {
@@ -20,9 +21,13 @@ const row = (label, value, unit = "") => {
 };
 
 export default function ObjectCard({ object, onClose }) {
+  const { t } = useApp();
   if (!object) return null;
   const o = object;
   const color = categoryColor(o.category);
+
+  // Тип объекта переводим по коду, если есть
+  const typeName = o.type_code ? typeLabel(t, o.type_code) : o.type_name;
 
   return (
     <div style={{
@@ -38,21 +43,20 @@ export default function ObjectCard({ object, onClose }) {
           <h2 style={{ fontSize: 16, fontWeight: 600 }}>{o.name}</h2>
           <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ width: 10, height: 10, borderRadius: "50%", background: color }} />
-            <span style={{ fontSize: 13, color }}>{categoryLabel(o.category)}</span>
+            <span style={{ fontSize: 13, color }}>{catLabel(t, o.category)}</span>
           </div>
         </div>
         <button onClick={onClose} style={{
-          background: "transparent", border: "none", color: "var(--text-dim)", padding: 4,
+          background: "transparent", border: "none", color: "var(--text-dim)", padding: 4, cursor: "pointer",
         }}>
           <X size={18} />
         </button>
       </div>
 
-      {/* Risk-индикатор */}
       <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
                       color: "var(--text-dim)", marginBottom: 8 }}>
-          Индекс риска
+          {t("riskIndex")}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1, height: 8, background: "var(--panel-2)", borderRadius: 4, overflow: "hidden" }}>
@@ -63,14 +67,13 @@ export default function ObjectCard({ object, onClose }) {
           </span>
         </div>
 
-        {/* Разбивка риска по факторам */}
         {o.risk_factors && (
           <div style={{ marginTop: 12 }}>
             {[
-              ["Тех. состояние", o.risk_factors.state, 0.45],
-              ["Возраст", o.risk_factors.age, 0.25],
-              ["Износ", o.risk_factors.wear, 0.20],
-              ["Деградация КПД", o.risk_factors.kpd, 0.10],
+              [t("riskFactorState"), o.risk_factors.state, 0.45],
+              [t("riskFactorAge"), o.risk_factors.age, 0.25],
+              [t("riskFactorWear"), o.risk_factors.wear, 0.20],
+              [t("riskFactorKpd"), o.risk_factors.kpd, 0.10],
             ].map(([label, val, max]) => (
               <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
                 <span style={{ fontSize: 11, color: "var(--text-dim)", width: 110, flexShrink: 0 }}>{label}</span>
@@ -86,43 +89,40 @@ export default function ObjectCard({ object, onClose }) {
         )}
       </div>
 
-      {/* Характеристики */}
       <div style={{ padding: "8px 20px" }}>
-        {row("Тип", o.type_name)}
-        {row("Район", o.district_name)}
-        {row("Сельский округ", o.rural_okrug)}
-        {row("Координаты", `${o.lat?.toFixed(4)}, ${o.lon?.toFixed(4)}`)}
-        {row("Год постройки", o.year_built)}
-        {row("Возраст", o.age, "лет")}
-        {row("Водоисточник", o.water_source)}
-        {row("Пропускная способность", o.capacity_m3s, "м³/с")}
-        {row("Протяжённость", o.length_total_km, "км")}
-        {row("— земляная", o.length_earth_km, "км")}
-        {row("— облицованная", o.length_lined_km, "км")}
-        {row("Подвешенная площадь", o.suspended_area_ha, "га")}
-        {row("КПД проектный", o.efficiency_design)}
-        {row("КПД фактический", o.efficiency_actual)}
-        {row("Падение КПД", o.efficiency_drop?.toFixed(3))}
-        {row("Износ", o.wear_percent ? `${(o.wear_percent * 100).toFixed(0)}%` : null)}
-        {row("Тех. состояние", o.tech_state_raw)}
-        {row("Кадастровый №", o.cadastral_no)}
-        {row("Госакт", o.state_act)}
+        {row(t("cardType"), typeName)}
+        {row(t("cardDistrict"), o.district_name)}
+        {row(t("cardRuralOkrug"), o.rural_okrug)}
+        {row(t("cardCoords"), `${o.lat?.toFixed(4)}, ${o.lon?.toFixed(4)}`)}
+        {row(t("cardYearBuilt"), o.year_built)}
+        {row(t("cardAge"), o.age, t("cardAgeYears"))}
+        {row(t("cardWaterSource"), o.water_source)}
+        {row(t("cardCapacity"), o.capacity_m3s, "м³/с")}
+        {row(t("cardLength"), o.length_total_km, "км")}
+        {row(t("cardLengthEarth"), o.length_earth_km, "км")}
+        {row(t("cardLengthLined"), o.length_lined_km, "км")}
+        {row(t("cardArea"), o.suspended_area_ha, "га")}
+        {row(t("cardKpdDesign"), o.efficiency_design)}
+        {row(t("cardKpdActual"), o.efficiency_actual)}
+        {row(t("cardKpdDrop"), o.efficiency_drop?.toFixed(3))}
+        {row(t("cardWear"), o.wear_percent ? `${(o.wear_percent * 100).toFixed(0)}%` : null)}
+        {row(t("cardTechState"), o.tech_state_raw)}
+        {row(t("cardCadastral"), o.cadastral_no)}
+        {row(t("cardStateAct"), o.state_act)}
       </div>
 
-      {/* Прогноз и осмотр */}
       <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)" }}>
         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
                       color: "var(--text-dim)", marginBottom: 10 }}>
-          Эксплуатация
+          {t("cardOperation")}
         </div>
-        {row("Следующий осмотр", o.next_inspection_date)}
+        {row(t("cardNextInspection"), o.next_inspection_date)}
       </div>
 
-      {/* Прогноз деградации */}
       <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)" }}>
         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
                       color: "var(--text-dim)", marginBottom: 10 }}>
-          Прогноз деградации
+          {t("cardForecast")}
         </div>
         <ForecastChart objectId={o.id} />
       </div>
