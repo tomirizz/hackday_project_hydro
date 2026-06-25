@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { categoryColor } from "../constants";
-import { X } from "lucide-react";
+import { X, Share2 } from "lucide-react";
 import { useApp, catLabel, typeLabel } from "../AppContext";
 import ForecastChart from "./ForecastChart";
+import InspectionsJournal from "./InspectionsJournal";
+import PhotoGallery from "./PhotoGallery";
 
 const row = (label, value, unit = "") => {
   if (value === null || value === undefined || value === "" || (typeof value === "number" && isNaN(value)))
@@ -22,12 +24,27 @@ const row = (label, value, unit = "") => {
 
 export default function ObjectCard({ object, onClose }) {
   const { t } = useApp();
+  const [localObj, setLocalObj] = useState(null);
+  const [shared, setShared] = useState(false);
+
   if (!object) return null;
-  const o = object;
+  const o = localObj ? { ...object, ...localObj } : object;
   const color = categoryColor(o.category);
 
   // Тип объекта переводим по коду, если есть
   const typeName = o.type_code ? typeLabel(t, o.type_code) : o.type_name;
+
+  const handleShare = () => {
+    const url = `${window.location.origin}${window.location.pathname}?object=${o.id}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    }).catch(() => {});
+  };
+
+  const handleRecalc = (recalc) => {
+    setLocalObj((prev) => ({ ...(prev || {}), ...recalc }));
+  };
 
   return (
     <div style={{
@@ -46,12 +63,30 @@ export default function ObjectCard({ object, onClose }) {
             <span style={{ fontSize: 13, color }}>{catLabel(t, o.category)}</span>
           </div>
         </div>
-        <button onClick={onClose} style={{
-          background: "transparent", border: "none", color: "var(--text-dim)", padding: 4, cursor: "pointer",
-        }}>
-          <X size={18} />
-        </button>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button onClick={handleShare} title={t("shareObject")} style={{
+            background: shared ? "var(--accent)" : "transparent", border: "none",
+            color: shared ? "var(--accent-text)" : "var(--text-dim)", padding: 4,
+            borderRadius: 4, cursor: "pointer",
+          }}>
+            <Share2 size={16} />
+          </button>
+          <button onClick={onClose} style={{
+            background: "transparent", border: "none", color: "var(--text-dim)", padding: 4, cursor: "pointer",
+          }}>
+            <X size={18} />
+          </button>
+        </div>
       </div>
+
+      {shared && (
+        <div style={{
+          padding: "8px 20px", background: "var(--accent)", color: "var(--accent-text)",
+          fontSize: 12, textAlign: "center",
+        }}>
+          {t("shareCopied")}
+        </div>
+      )}
 
       <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
@@ -60,7 +95,7 @@ export default function ObjectCard({ object, onClose }) {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1, height: 8, background: "var(--panel-2)", borderRadius: 4, overflow: "hidden" }}>
-            <div style={{ width: `${o.risk_score * 100}%`, height: "100%", background: color }} />
+            <div className="risk-bar-fill" style={{ width: `${o.risk_score * 100}%`, height: "100%", background: color }} />
           </div>
           <span className="mono" style={{ fontSize: 15, fontWeight: 600 }}>
             {(o.risk_score * 100).toFixed(0)}%
@@ -125,6 +160,14 @@ export default function ObjectCard({ object, onClose }) {
           {t("cardForecast")}
         </div>
         <ForecastChart objectId={o.id} />
+      </div>
+
+      <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)" }}>
+        <PhotoGallery objectId={o.id} />
+      </div>
+
+      <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)" }}>
+        <InspectionsJournal objectId={o.id} onRecalc={handleRecalc} />
       </div>
     </div>
   );

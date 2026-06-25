@@ -4,12 +4,13 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   ComposedChart, Line,
 } from "recharts";
-import { fetchDashboard, reportUrl } from "../api/client";
+import { fetchDashboard, reportUrl, excelUrl } from "../api/client";
 import { CATEGORIES } from "../constants";
 import { useApp, catLabel } from "../AppContext";
 import { LANGUAGES } from "../i18n";
 import DrillModal from "./DrillModal";
-import { FileDown } from "lucide-react";
+import AnimatedNumber from "./AnimatedNumber";
+import { FileDown, FileSpreadsheet } from "lucide-react";
 
 const card = { background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, padding: 16 };
 const cardTitle = {
@@ -19,12 +20,12 @@ const cardTitle = {
 
 const CATEGORY_ORDER = ["normal", "watch", "repair", "critical"];
 
-function Metric({ label, value, suffix, accent, onClick }) {
+function Metric({ label, value, suffix, accent, onClick, decimals = 0 }) {
   return (
-    <div style={{ ...card, cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
+    <div className="lift-hover" style={{ ...card, cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
       <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 6 }}>{label}</div>
       <div className="mono" style={{ fontSize: 26, fontWeight: 600, color: accent || "var(--text)" }}>
-        {value}<span style={{ fontSize: 14, color: "var(--text-dim)" }}>{suffix}</span>
+        <AnimatedNumber value={value} decimals={decimals} /><span style={{ fontSize: 14, color: "var(--text-dim)" }}>{suffix}</span>
       </div>
     </div>
   );
@@ -91,7 +92,22 @@ export default function Dashboard() {
     <div style={{ padding: 20, overflowY: "auto", height: "100%", position: "relative" }}>
       <div style={{ display: "flex", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
         <div style={{ fontSize: 15, fontWeight: 600 }}>{t("dashTitle")}</div>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {/* Excel экспорт */}
+          <a
+            href={excelUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex", alignItems: "center", gap: 5,
+              background: "#1d6f42", color: "#fff",
+              textDecoration: "none", borderRadius: 6, padding: "7px 11px",
+              fontSize: 12, fontWeight: 500,
+            }}
+          >
+            <FileSpreadsheet size={13} /> {t("exportExcel")}
+          </a>
+
           {/* Выбор языка отчёта */}
           <span style={{ fontSize: 12, color: "var(--text-dim)" }}>PDF:</span>
           {LANGUAGES.map((l) => (
@@ -116,13 +132,13 @@ export default function Dashboard() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
         <Metric label={t("dashTotal")} value={m.total} />
-        <Metric label={t("dashAvgRisk")} value={(m.avg_risk * 100).toFixed(0)} suffix="%" accent="var(--accent)" />
+        <Metric label={t("dashAvgRisk")} value={m.avg_risk * 100} suffix="%" accent="var(--accent)" />
         <Metric label={t("dashCritical")} value={m.critical_count} accent="var(--c-critical)"
                 onClick={() => setDrill({ type: "category", value: "critical", label: `${t("filterState")}: ${t("cat_critical")}` })} />
         <Metric label={t("dashRepair")} value={m.repair_count} accent="var(--c-repair)"
                 onClick={() => setDrill({ type: "category", value: "repair", label: `${t("filterState")}: ${t("cat_repair")}` })} />
-        <Metric label={t("dashAvgKpd")} value={(m.avg_kpd * 100).toFixed(0)} suffix="%" />
-        <Metric label={t("dashAvgAge")} value={m.avg_age} suffix={` ${t("dashAgeYears")}`} />
+        <Metric label={t("dashAvgKpd")} value={m.avg_kpd * 100} suffix="%" />
+        <Metric label={t("dashAvgAge")} value={m.avg_age} suffix={` ${t("dashAgeYears")}`} decimals={0} />
       </div>
 
       <div className="dashboard-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>

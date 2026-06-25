@@ -1,16 +1,15 @@
 import React, { useMemo } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap, useMapEvents, LayersControl } from "react-leaflet";
 import { categoryColor } from "../constants";
 import { useApp, catLabel } from "../AppContext";
 import HeatLayer from "./HeatLayer";
 
+const { BaseLayer } = LayersControl;
+
 const ZHAMBYL_CENTER = [43.5, 72.0];
 const DEFAULT_ZOOM = 7;
 
-const DISCOVER_COLORS = {
-  new:        "#38bdf8",
-  unverified: "#eab308",
-};
+const DISCOVER_COLORS = { new: "#38bdf8", unverified: "#eab308" };
 
 function FlyTo({ target }) {
   const map = useMap();
@@ -20,7 +19,20 @@ function FlyTo({ target }) {
   return null;
 }
 
-export default function MapView({ objects, selectedId, onSelect, flyTarget, heatPoints, showHeat, discoverMarkers }) {
+// Перехват кликов по карте для режима добавления объекта
+function ClickCatcher({ active, onPick }) {
+  useMapEvents({
+    click(e) {
+      if (active) onPick({ lat: e.latlng.lat, lon: e.latlng.lng });
+    },
+  });
+  return null;
+}
+
+export default function MapView({
+  objects, selectedId, onSelect, flyTarget, heatPoints, showHeat,
+  discoverMarkers, pickMode, onPickCoords, pickedCoords,
+}) {
   const { t } = useApp();
 
   const markers = useMemo(
@@ -30,6 +42,7 @@ export default function MapView({ objects, selectedId, onSelect, flyTarget, heat
           key={o.id}
           center={[o.lat, o.lon]}
           radius={selectedId === o.id ? 9 : 6}
+          className={o.category === "critical" ? "pulse-critical" : ""}
           pathOptions={{
             color: selectedId === o.id ? "#ffffff" : categoryColor(o.category),
             weight: selectedId === o.id ? 2 : 1,
@@ -58,7 +71,6 @@ export default function MapView({ objects, selectedId, onSelect, flyTarget, heat
     [objects, selectedId, onSelect, t]
   );
 
-  // Маркеры обнаруженных из OSM объектов (квадратные через DivIcon-эффект — рисуем кольцом)
   const discMarkers = useMemo(
     () =>
       (discoverMarkers || []).map((m, i) => (
@@ -67,19 +79,15 @@ export default function MapView({ objects, selectedId, onSelect, flyTarget, heat
           center={[m.lat, m.lon]}
           radius={7}
           pathOptions={{
-            color: "#ffffff",
-            weight: 2,
+            color: "#ffffff", weight: 2,
             fillColor: DISCOVER_COLORS[m.status] || "#38bdf8",
-            fillOpacity: 0.9,
-            dashArray: "3",
+            fillOpacity: 0.9, dashArray: "3",
           }}
         >
           <Popup>
             <div style={{ minWidth: 160 }}>
               <strong>{m.name}</strong>
-              <div style={{ marginTop: 6, fontSize: 12 }}>
-                OpenStreetMap · {m.waterway}
-              </div>
+              <div style={{ marginTop: 6, fontSize: 12 }}>OpenStreetMap · {m.waterway}</div>
               <div style={{ marginTop: 4, fontSize: 12, color: DISCOVER_COLORS[m.status] }}>
                 {m.status === "new" ? t("discoverNew") : t("discoverUnverified")}
               </div>
@@ -94,16 +102,44 @@ export default function MapView({ objects, selectedId, onSelect, flyTarget, heat
     <MapContainer
       center={ZHAMBYL_CENTER}
       zoom={DEFAULT_ZOOM}
-      style={{ height: "100%", width: "100%" }}
+      style={{ height: "100%", width: "100%", cursor: pickMode ? "crosshair" : "" }}
       preferCanvas={true}
     >
-      <TileLayer
-        attribution='&copy; OpenStreetMap'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      <LayersControl position="topleft">
+        <BaseLayer checked name="Схема (OSM)">
+          <TileLayer
+            attribution='&copy; OpenStreetMap'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+        </BaseLayer>
+        <BaseLayer name="Спутник">
+          <TileLayer
+            attribution='&copy; Esri'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          />
+        </BaseLayer>
+        <BaseLayer name="Спутник + подписи">
+          <TileLayer
+            attribution='&copy; Esri'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          />
+          <TileLayer
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+          />
+        </BaseLayer>
+      </LayersControl>
       {!showHeat && markers}
       {discMarkers}
+      {/* Маркер выбранной точки при добавлении объекта */}
+      {pickedCoords && (
+        <CircleMarker
+          center={[pickedCoords.lat, pickedCoords.lon]}
+          radius={10}
+          pathOptions={{ color: "#2dd4bf", weight: 3, fillColor: "#2dd4bf", fillOpacity: 0.4 }}
+        />
+      )}
       <HeatLayer points={heatPoints} visible={showHeat} />
+      <ClickCatcher active={pickMode} onPick={onPickCoords} />
       <FlyTo target={flyTarget} />
     </MapContainer>
   );
