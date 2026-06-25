@@ -5,6 +5,7 @@ from typing import Optional
 import sqlite3
 import os
 import math
+import json
 
 from backend.database import get_db, init_db, DB_PATH
 from backend.dedup import find_duplicate
@@ -351,3 +352,179 @@ def report(lang: str = Query("ru", description="ru | kz | en")):
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="hydro_report_{lang}.pdf"'},
     )
+
+
+# ── /objects (создание нового объекта вручную) ───────────────────────────────
+
+@app.post("/objects")
+def create_new_object(body: dict):
+    """
+    Создаёт новый объект вручную (например, кликом на карте).
+    Координаты обязательны. Риск и категория считаются автоматически.
+    Объект помечается is_verified=0 (добавлен вручную, требует проверки).
+    """
+    from backend.crud import create_object
+    result = create_object(body)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+# ── /inspections (журнал осмотров) ───────────────────────────────────────────
+
+@app.get("/objects/{object_id}/inspections")
+def list_inspections(object_id: int):
+    """Возвращает журнал осмотров объекта (новые сверху)."""
+    from backend.crud import get_inspections
+    return {"items": get_inspections(object_id)}
+
+
+@app.post("/objects/{object_id}/inspections")
+def create_inspection(object_id: int, body: dict):
+    """
+    Добавляет запись осмотра. Если указано новое состояние (удов./не удов.) —
+    обновляет состояние объекта и пересчитывает риск и дату следующего осмотра.
+    """
+    from backend.crud import add_inspection
+    result = add_inspection(object_id, body)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
+# ── /export/excel (выгрузка в Excel) ─────────────────────────────────────────
+
+@app.get("/export/excel")
+def export_excel(
+    category: Optional[str] = Query(None),
+    type_code: Optional[str] = Query(None),
+):
+    """Выгружает объекты в форматированный Excel-файл с цветовой разметкой."""
+    from backend.export_excel import export_objects_xlsx
+    data = export_objects_xlsx(category=category, type_code=type_code)
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="hydro_objects.xlsx"'},
+    )
+
+
+# ── /inspections/overdue (просроченные осмотры) ──────────────────────────────
+
+@app.get("/inspections/overdue")
+def overdue_inspections():
+    """
+    Возвращает объекты, у которых плановая дата осмотра уже прошла.
+    Это ядро практической пользы: инспектор сразу видит, что просрочено.
+    """
+    from datetime import date
+    conn = get_db()
+    today = date.today().isoformat()
+    rows = conn.execute("""
+        SELECT o.id, o.name, o.lat, o.lon, o.risk_score, o.category,
+               o.next_inspection_date, d.name AS district_name,
+               CAST(julianday(?) - julianday(o.next_inspection_date) AS INTEGER) AS days_overdue
+        FROM objects o
+        LEFT JOIN districts d ON o.district_id = d.id
+        WHERE o.next_inspection_date IS NOT NULL
+          AND o.next_inspection_date < ?
+        ORDER BY o.next_inspection_date ASC
+    """, (today, today)).fetchall()
+    conn.close()
+    items = [dict(r) for r in rows]
+    return {"total": len(items), "items": items}
+
+
+# ── Фотографии объектов + Claude Vision анализ ───────────────────────────────
+
+import base64
+from datetime import datetime
+
+PHOTOS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "photos")
+os.makedirs(PHOTOS_DIR, exist_ok=True)
+
+
+@app.get("/objects/{object_id}/photos")
+def list_photos(object_id: int):
+    """Возвращает список фотографий объекта с результатами ИИ-анализа."""
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT id, object_id, filename, uploaded_at,
+               vision_type, vision_state, vision_defects,
+               vision_confidence, vision_description
+        FROM photos WHERE object_id = ? ORDER BY uploaded_at DESC
+    """, (object_id,)).fetchall()
+    conn.close()
+    items = []
+    for r in rows:
+        d = dict(r)
+        if d.get("vision_defects"):
+            try:
+                d["vision_defects"] = json.loads(d["vision_defects"])
+            except Exception:
+                d["vision_defects"] = []
+        items.append(d)
+    return {"items": items}
+
+
+@app.post("/objects/{object_id}/photos")
+def upload_photo(object_id: int, body: dict):
+    """
+    Принимает фото в base64, сохраняет на диск, анализирует через Claude Vision
+    и сохраняет результат. body = {image_base64, media_type, analyze: true/false}
+    """
+    image_b64 = body.get("image_base64", "")
+    media_type = body.get("media_type", "image/jpeg")
+    do_analyze = body.get("analyze", True)
+
+    if not image_b64:
+        raise HTTPException(status_code=400, detail="Нет изображения")
+
+    # Сохраняем файл на диск
+    ext = "jpg" if "jpeg" in media_type or "jpg" in media_type else "png"
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    filename = f"obj{object_id}_{ts}.{ext}"
+    filepath = os.path.join(PHOTOS_DIR, filename)
+    try:
+        with open(filepath, "wb") as f:
+            f.write(base64.b64decode(image_b64))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Ошибка сохранения: {e}")
+
+    # Анализ через Claude Vision
+    vision = {}
+    if do_analyze:
+        from backend.vision import analyze_image
+        vision = analyze_image(image_b64, media_type)
+
+    conn = get_db()
+    cur = conn.execute("""
+        INSERT INTO photos (object_id, filename, vision_type, vision_state,
+                            vision_defects, vision_confidence, vision_description)
+        VALUES (?,?,?,?,?,?,?)
+    """, (
+        object_id, filename,
+        vision.get("object_type"), vision.get("condition"),
+        json.dumps(vision.get("defects", []), ensure_ascii=False),
+        vision.get("confidence"), vision.get("description"),
+    ))
+    conn.commit()
+    photo_id = cur.lastrowid
+    conn.close()
+
+    return {
+        "id": photo_id, "filename": filename,
+        "vision": vision if do_analyze else None,
+    }
+
+
+@app.get("/photos/{filename}")
+def get_photo(filename: str):
+    """Отдаёт файл фотографии."""
+    from fastapi.responses import FileResponse
+    # Защита от path traversal
+    safe = os.path.basename(filename)
+    path = os.path.join(PHOTOS_DIR, safe)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Фото не найдено")
+    return FileResponse(path)

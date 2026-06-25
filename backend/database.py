@@ -64,10 +64,55 @@ def _load_csv(conn: sqlite3.Connection):
     df = df[[c for c in cols if c in df.columns]]
     df.to_sql("objects", conn, if_exists="replace", index=False)
 
+    # to_sql пересоздаёт таблицу по колонкам CSV, теряя служебные поля из schema.
+    # Добавляем их обратно через ALTER TABLE.
+    existing = [r[1] for r in conn.execute("PRAGMA table_info(objects)").fetchall()]
+    if "source" not in existing:
+        conn.execute("ALTER TABLE objects ADD COLUMN source TEXT DEFAULT 'kazvodkhoz_2026'")
+    if "is_verified" not in existing:
+        conn.execute("ALTER TABLE objects ADD COLUMN is_verified INTEGER DEFAULT 1")
+    if "last_inspection_date" not in existing:
+        conn.execute("ALTER TABLE objects ADD COLUMN last_inspection_date DATE")
+    conn.commit()
+
     # Добавляем демо-объекты других типов (шлюзы, плотины, насосные, гидропосты)
     _add_demo_objects(conn, start_id=len(df) + 1)
 
+    # Реалистичная имитация: часть аварийных объектов давно не осматривалась,
+    # их плановая дата осмотра уже в прошлом (просрочена). Это показывает
+    # практическую ценность системы — она выявляет забытые объекты.
+    _simulate_overdue(conn)
+
     print(f"Загружено {len(df)} объектов в БД")
+
+
+def _simulate_overdue(conn: sqlite3.Connection):
+    """
+    Сдвигает дату осмотра в прошлое для части критических/ремонтных объектов.
+    В реальной эксплуатации именно у самых проблемных объектов чаще всего
+    пропущены сроки осмотра — система это подсвечивает.
+    """
+    from datetime import date, timedelta
+    import numpy as np
+
+    today = date.today()
+    # Берём аварийные и ремонтные объекты с худшим риском
+    rows = conn.execute("""
+        SELECT id, risk_score FROM objects
+        WHERE category IN ('critical', 'repair')
+        ORDER BY risk_score DESC
+    """).fetchall()
+
+    # Делаем просроченными ~60% худших объектов из этой выборки
+    n_overdue = int(len(rows) * 0.6)
+    for r in rows[:n_overdue]:
+        rng = np.random.default_rng(int(r["id"]) + 555)
+        days_ago = int(rng.integers(5, 180))  # просрочка от 5 дней до полугода
+        overdue_date = (today - timedelta(days=days_ago)).isoformat()
+        conn.execute("UPDATE objects SET next_inspection_date = ? WHERE id = ?",
+                     (overdue_date, r["id"]))
+    conn.commit()
+    print(f"Имитировано просроченных осмотров: {n_overdue}")
 
 
 def _add_demo_objects(conn: sqlite3.Connection, start_id: int):

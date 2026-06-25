@@ -78,3 +78,16 @@ CREATE TABLE inspections (
     state_found  TEXT,
     notes        TEXT
 );
+
+-- ── Фотографии объектов (с результатом Claude Vision анализа) ────────────────
+CREATE TABLE photos (
+    id            INTEGER PRIMARY KEY,
+    object_id     INTEGER REFERENCES objects(id),
+    filename      TEXT NOT NULL,        -- путь к файлу на диске
+    uploaded_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    vision_type   TEXT,                 -- тип объекта по мнению ИИ
+    vision_state  TEXT,                 -- состояние по мнению ИИ
+    vision_defects TEXT,                -- дефекты (JSON-массив)
+    vision_confidence REAL,             -- уверенность ИИ
+    vision_description TEXT             -- описание
+);
