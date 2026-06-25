@@ -2,7 +2,7 @@ import math
 import re
 from backend.database import get_db
 
-RADIUS_M = 500  # радиус поиска кандидатов на совпадение
+RADIUS_M = 200  # радиус поиска кандидатов на совпадение
 
 
 def _haversine(lat1, lon1, lat2, lon2) -> float:
