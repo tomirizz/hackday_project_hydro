@@ -260,32 +260,52 @@ def dashboard():
         ORDER BY decade
     """).fetchall()
 
-    # Heatmap аварийности: точки риска для тепловой карты
+    # Heatmap аварийности
     heat_points = conn.execute("""
         SELECT lat, lon, risk_score
         FROM objects
         WHERE risk_score >= 0.5
     """).fetchall()
 
-    # Сводные метрики
+    # Топ-5 самых опасных объектов (для дашборда)
+    top_critical = conn.execute("""
+        SELECT o.id, o.name, o.risk_score, o.category, o.year_built,
+               d.name AS district_name
+        FROM objects o LEFT JOIN districts d ON o.district_id = d.id
+        WHERE o.category = 'critical'
+        ORDER BY o.risk_score DESC LIMIT 5
+    """).fetchall()
+
+    # Сводные метрики (расширенные)
     metrics = conn.execute("""
         SELECT
           COUNT(*) as total,
           ROUND(AVG(risk_score), 3) as avg_risk,
           ROUND(AVG(efficiency_actual), 3) as avg_kpd,
+          ROUND(AVG(efficiency_design), 3) as avg_kpd_design,
           ROUND(AVG(age), 1) as avg_age,
           SUM(CASE WHEN category = 'critical' THEN 1 ELSE 0 END) as critical_count,
-          SUM(CASE WHEN category = 'repair' THEN 1 ELSE 0 END) as repair_count
+          SUM(CASE WHEN category = 'repair' THEN 1 ELSE 0 END) as repair_count,
+          SUM(CASE WHEN category = 'watch' THEN 1 ELSE 0 END) as watch_count,
+          SUM(CASE WHEN category = 'normal' THEN 1 ELSE 0 END) as normal_count,
+          ROUND(AVG(wear_percent) * 100, 1) as avg_wear_pct
         FROM objects
     """).fetchone()
 
     conn.close()
+
+    # Прогноз региона
+    from backend.forecast import region_forecast
+    forecast = region_forecast(10)
+
     return {
         "metrics": dict(metrics),
         "by_category": [dict(r) for r in by_category],
         "age_histogram": [dict(r) for r in age_buckets],
         "by_decade": [dict(r) for r in by_decade],
-        "heat_points": [dict(r) for r in heat_points],
+        "heat_points": [list(r) for r in heat_points],
+        "top_critical": [dict(r) for r in top_critical],
+        "region_forecast": forecast,
     }
 
 
