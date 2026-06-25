@@ -11,7 +11,6 @@ import HydroBot from "./components/HydroBot";
 import DiscoverPanel from "./components/DiscoverPanel";
 import AddObjectPanel from "./components/AddObjectPanel";
 import MapLegend from "./components/MapLegend";
-import Top5Panel from "./components/Top5Panel";
 import OverduePanel from "./components/OverduePanel";
 import { useApp } from "./AppContext";
 import { LANGUAGES } from "./i18n";
@@ -46,7 +45,6 @@ export default function App() {
 
   // Новые состояния
   const [searchQuery, setSearchQuery] = useState("");
-  const [showTop5, setShowTop5] = useState(false);
   const [showOverdue, setShowOverdue] = useState(false);
   const [overdueCount, setOverdueCount] = useState(null);
   const [fullscreen, setFullscreen] = useState(false);
@@ -265,7 +263,7 @@ export default function App() {
               )}
               {overdueCount != null && overdueCount > 0 && (
                 <span style={{ color: "var(--c-repair)", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}
-                      onClick={() => { setTab("map"); setShowOverdue(true); setShowTop5(false); }}>
+                      onClick={() => { setTab("map"); setShowOverdue(true); }}>
                   <Clock size={12} /> {overdueCount} {t("overdueBanner")}
                 </span>
               )}
@@ -382,11 +380,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Топ-5 панель */}
-            {showTop5 && (
-              <Top5Panel objects={objects} onSelect={handleSelect} onClose={() => setShowTop5(false)} />
-            )}
-
             {/* Просроченные осмотры */}
             {showOverdue && (
               <OverduePanel onSelect={(id) => { handleSelect(id); }} onClose={() => setShowOverdue(false)} />
@@ -394,8 +387,7 @@ export default function App() {
 
             {/* Кнопки управления картой */}
             <div style={{ position: "absolute", top: 12, right: 12, zIndex: 1000, display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              {mapCtrl(showTop5, "var(--c-critical)", () => { setShowTop5((v) => !v); setShowOverdue(false); }, AlertTriangle, t("top5Show"), "top5")}
-              {mapCtrl(showOverdue, "var(--c-repair)", () => { setShowOverdue((v) => !v); setShowTop5(false); }, Clock,
+              {mapCtrl(showOverdue, "var(--c-repair)", () => { setShowOverdue((v) => !v); }, Clock,
                        overdueCount != null ? `${t("overdueShow")} (${overdueCount})` : t("overdueShow"), "overdue")}
               {mapCtrl(showHeat, "var(--c-critical)", () => setShowHeat((v) => !v), Flame, showHeat ? t("mapHeatHide") : t("mapHeatShow"), "heat")}
               {mapCtrl(showDiscover, "var(--accent-2)", handleDiscover, Radar, t("mapDiscover"), "discover")}
