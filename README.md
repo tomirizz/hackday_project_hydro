@@ -26,7 +26,8 @@ data/
 python backend/parse_dataset.py
 
 # 2. Бэкенд
-pip install fastapi uvicorn pandas
+pip install -r requirements.txt
+export ANTHROPIC_API_KEY="ваш-ключ"   # для ГидроБота
 uvicorn backend.main:app --reload
 
 # 3. Фронтенд
@@ -34,6 +35,8 @@ cd frontend && npm install && npm start
 ```
 
 Деплой на сервер не требуется — система запускается локально.
+ГидроБот работает на Claude API (нужен ключ ANTHROPIC_API_KEY).
+Без ключа всё остальное работает, только чат-ассистент недоступен.
 
 ## Стек
 
