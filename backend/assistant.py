@@ -194,3 +194,57 @@ def ask(user_message: str) -> dict:
         answer = msg.get("content", "Не удалось обработать запрос.")
 
     return {"answer": _strip_markdown(answer.strip()), "objects": matched, "filter": filter_args}
+
+
+# ── Оценка состояния объекта по фотографии (мультимодальный запрос) ───────────
+
+VISION_ASSISTANT_PROMPT = (
+    "Ты ГидроБот — эксперт по гидротехническим сооружениям Жамбылской области. "
+    "Пользователь прислал фотографию объекта. Оцени по снимку: тип сооружения, "
+    "техническое состояние (исправное, требует наблюдения, требует ремонта или "
+    "аварийное), видимые дефекты и краткую рекомендацию по дальнейшим действиям. "
+    "Если на фото нет гидротехнического сооружения — честно скажи об этом. "
+    "Отвечай обычным текстом на русском, 4-8 предложений, без markdown-разметки, "
+    "без звёздочек и маркеров списка."
+)
+
+
+def ask_with_image(user_message: str, image_base64: str, media_type: str = "image/jpeg") -> dict:
+    """
+    Принимает фотографию и (необязательно) текст, отправляет в мультимодальную
+    модель и возвращает оценку состояния объекта обычным текстом.
+    """
+    if not ANTHROPIC_API_KEY:
+        return {"answer": "ГидроБот недоступен: не задан ANTHROPIC_API_KEY.", "objects": [], "filter": None}
+
+    text = (user_message or "").strip() or "Оцени состояние объекта на фотографии."
+    payload = {
+        "model": MODEL,
+        "max_tokens": 1024,
+        "messages": [
+            {"role": "system", "content": VISION_ASSISTANT_PROMPT},
+            {"role": "user", "content": [
+                {"type": "text", "text": text},
+                {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{image_base64}"}},
+            ]},
+        ],
+    }
+
+    try:
+        req = urllib.request.Request(
+            ANTHROPIC_URL,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "content-type": "application/json",
+                "authorization": f"Bearer {ANTHROPIC_API_KEY}",
+                "http-referer": "https://hydrocadastre.kz",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        answer = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    except Exception as e:
+        return {"answer": f"Ошибка анализа фото: {e}", "objects": [], "filter": None}
+
+    return {"answer": _strip_markdown((answer or "").strip()), "objects": [], "filter": None}

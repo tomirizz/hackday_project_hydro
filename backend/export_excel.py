@@ -139,3 +139,123 @@ def export_objects_xlsx(category=None, type_code=None) -> bytes:
     wb.save(buf)
     buf.seek(0)
     return buf.read()
+
+
+
+# План осмотров — отдельная выгрузка (не общий каталог!)
+# Лист 1: просроченные осмотры. Лист 2: ближайший план по всем объектам.
+
+def export_inspection_plan_xlsx() -> bytes:
+    from datetime import date
+    conn = get_db()
+    today = date.today().isoformat()
+
+    overdue = conn.execute("""
+        SELECT o.id, o.name, t.name AS type_name, d.name AS district_name,
+               o.category, o.risk_score, o.last_inspection_date,
+               o.next_inspection_date,
+               CAST(julianday(?) - julianday(o.next_inspection_date) AS INTEGER) AS days_overdue
+        FROM objects o
+        LEFT JOIN object_types t ON o.type_id = t.id
+        LEFT JOIN districts d ON o.district_id = d.id
+        WHERE o.next_inspection_date IS NOT NULL AND o.next_inspection_date < ?
+        ORDER BY o.next_inspection_date ASC
+    """, (today, today)).fetchall()
+
+    plan = conn.execute("""
+        SELECT o.id, o.name, t.name AS type_name, d.name AS district_name,
+               o.category, o.risk_score, o.importance,
+               o.last_inspection_date, o.next_inspection_date
+        FROM objects o
+        LEFT JOIN object_types t ON o.type_id = t.id
+        LEFT JOIN districts d ON o.district_id = d.id
+        WHERE o.next_inspection_date IS NOT NULL
+        ORDER BY o.next_inspection_date ASC
+        LIMIT 200
+    """).fetchall()
+    conn.close()
+
+    wb = Workbook()
+    header_fill = PatternFill("solid", fgColor="1F2D3A")
+    header_font = Font(bold=True, color="FFFFFF", size=10)
+    thin = Side(style="thin", color="CCCCCC")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    def style_header(ws, headers):
+        for col, h in enumerate(headers, 1):
+            c = ws.cell(row=1, column=col, value=h)
+            c.fill = header_fill
+            c.font = header_font
+            c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            c.border = border
+
+    # Лист 1: Просроченные осмотры 
+    ws1 = wb.active
+    ws1.title = "Просроченные осмотры"
+    h1 = ["№", "Объект", "Тип", "Район", "Состояние", "Риск %",
+          "Последний осмотр", "План. дата осмотра", "Просрочка, дней"]
+    style_header(ws1, h1)
+
+    for i, row in enumerate(overdue, 1):
+        d = dict(row)
+        cat = d["category"]
+        vals = [
+            i, d["name"], d["type_name"], d["district_name"],
+            CAT_LABELS.get(cat, cat),
+            round(d["risk_score"] * 100) if d["risk_score"] is not None else None,
+            d["last_inspection_date"] or "—",
+            d["next_inspection_date"],
+            d["days_overdue"],
+        ]
+        for col, v in enumerate(vals, 1):
+            c = ws1.cell(row=i + 1, column=col, value=v)
+            c.border = border
+            c.font = Font(size=9, bold=(col in (6, 9)))
+            if col == 5:
+                c.fill = PatternFill("solid", fgColor=CAT_FILLS.get(cat, "FFFFFF"))
+            if col == 9 and isinstance(v, int) and v > 0:  # просрочка — красным
+                c.font = Font(size=9, bold=True, color="C62828")
+
+    if not overdue:
+        ws1.cell(row=2, column=1, value="Просроченных осмотров нет").font = Font(size=10, italic=True)
+
+    for col, w in enumerate([5, 30, 16, 14, 16, 8, 16, 18, 14], 1):
+        ws1.column_dimensions[get_column_letter(col)].width = w
+    ws1.freeze_panes = "A2"
+
+    # Лист 2: Полный план осмотров 
+    ws2 = wb.create_sheet("План осмотров")
+    h2 = ["№", "Объект", "Тип", "Район", "Состояние", "Риск %",
+          "Важность", "Последний осмотр", "Следующий осмотр", "Статус"]
+    style_header(ws2, h2)
+
+    for i, row in enumerate(plan, 1):
+        d = dict(row)
+        cat = d["category"]
+        is_overdue = d["next_inspection_date"] and d["next_inspection_date"] < today
+        vals = [
+            i, d["name"], d["type_name"], d["district_name"],
+            CAT_LABELS.get(cat, cat),
+            round(d["risk_score"] * 100) if d["risk_score"] is not None else None,
+            round((d["importance"] or 0) * 100),
+            d["last_inspection_date"] or "—",
+            d["next_inspection_date"],
+            "ПРОСРОЧЕН" if is_overdue else "По плану",
+        ]
+        for col, v in enumerate(vals, 1):
+            c = ws2.cell(row=i + 1, column=col, value=v)
+            c.border = border
+            c.font = Font(size=9, bold=(col == 6))
+            if col == 5:
+                c.fill = PatternFill("solid", fgColor=CAT_FILLS.get(cat, "FFFFFF"))
+            if col == 10 and is_overdue:
+                c.font = Font(size=9, bold=True, color="C62828")
+
+    for col, w in enumerate([5, 30, 16, 14, 16, 8, 10, 16, 18, 12], 1):
+        ws2.column_dimensions[get_column_letter(col)].width = w
+    ws2.freeze_panes = "A2"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read()

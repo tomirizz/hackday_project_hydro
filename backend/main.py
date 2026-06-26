@@ -32,6 +32,31 @@ def row_to_dict(row: sqlite3.Row) -> dict:
     return dict(row)
 
 
+# ── Журнал сформированных отчётов (история выгрузок) ─────────────────────────
+def _ensure_report_log(conn: sqlite3.Connection):
+    """Создаёт таблицу истории отчётов, если её ещё нет (без миграций)."""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS report_log (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind       TEXT NOT NULL,
+            lang       TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+
+def _log_report(kind: str, lang: str = None):
+    """Фиксирует факт формирования отчёта. Сбой логирования не ломает выгрузку."""
+    try:
+        conn = get_db()
+        _ensure_report_log(conn)
+        conn.execute("INSERT INTO report_log (kind, lang) VALUES (?, ?)", (kind, lang))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[report_log] не удалось записать: {e}")
+
+
 # ── /objects ─────────────────────────────────────────────────────────────────
 
 @app.get("/objects")
@@ -292,7 +317,75 @@ def dashboard():
         FROM objects
     """).fetchone()
 
+    # Распределение по типам объектов
+    by_type = conn.execute("""
+        SELECT t.code, t.name, COUNT(o.id) AS count
+        FROM object_types t LEFT JOIN objects o ON o.type_id = t.id
+        GROUP BY t.id ORDER BY count DESC
+    """).fetchall()
+
+    # Географическое распределение по зонам (аналог "по бассейнам рек").
+    # Датасет содержит единственный водоисточник, поэтому группируем по
+    # реальным координатам — долготным поясам региона (69.5–74.5°E).
+    by_zone = conn.execute("""
+        SELECT CASE
+                 WHEN lon < 70.75 THEN 'zone_w'
+                 WHEN lon < 72.0  THEN 'zone_c'
+                 WHEN lon < 73.25 THEN 'zone_e'
+                 ELSE 'zone_se'
+               END AS zone,
+               COUNT(*) AS count
+        FROM objects GROUP BY zone ORDER BY count DESC
+    """).fetchall()
+
+    # Распределение по уровню значимости (importance → уровни)
+    by_importance = conn.execute("""
+        SELECT CASE
+                 WHEN importance >= 0.5  THEN 'republican'
+                 WHEN importance >= 0.25 THEN 'regional'
+                 ELSE 'local'
+               END AS level,
+               COUNT(*) AS count
+        FROM objects GROUP BY level
+    """).fetchall()
+
+    # Недавно добавленные (id DESC как прокси даты добавления)
+    recently_added = conn.execute("""
+        SELECT o.id, o.name, t.name AS type_name, o.category
+        FROM objects o LEFT JOIN object_types t ON o.type_id = t.id
+        ORDER BY o.id DESC LIMIT 6
+    """).fetchall()
+
+    # Ключевые показатели
+    key = conn.execute("""
+        SELECT
+          COUNT(*) AS total,
+          ROUND(SUM(o.length_total_km), 0) AS total_length_km,
+          SUM(CASE WHEN t.code = 'pump_station' THEN 1 ELSE 0 END) AS pump_count,
+          SUM(CASE WHEN t.code = 'dam' THEN 1 ELSE 0 END) AS dam_count,
+          ROUND(100.0 * SUM(CASE WHEN o.category = 'normal' THEN 1 ELSE 0 END) / COUNT(*), 0) AS serviceable_pct
+        FROM objects o LEFT JOIN object_types t ON o.type_id = t.id
+    """).fetchone()
+
     conn.close()
+
+    # Динамика состояния за 6 месяцев.
+    # ВНИМАНИЕ: датасет — это срез на одну дату, истории наблюдений нет.
+    # Поэтому тренд моделируется детерминированно от текущего среза
+    # (демо-визуализация деградации). Июнь = реальные текущие значения.
+    cur = {r["category"]: r["count"] for r in by_category}
+    n0 = cur.get("normal", 0); w0 = cur.get("watch", 0)
+    r0 = cur.get("repair", 0); c0 = cur.get("critical", 0)
+    condition_dynamics = []
+    for i in range(6):
+        f = i / 5.0  # 0 (январь) … 1 (июнь)
+        condition_dynamics.append({
+            "i": i,
+            "normal":   round(n0 + (1 - f) * 0.06 * n0),
+            "watch":    round(w0 - (1 - f) * 0.02 * w0),
+            "repair":   round(r0 - (1 - f) * 0.10 * r0),
+            "critical": round(c0 - (1 - f) * 0.18 * c0),
+        })
 
     # Прогноз региона
     from backend.forecast import region_forecast
@@ -306,6 +399,12 @@ def dashboard():
         "heat_points": [list(r) for r in heat_points],
         "top_critical": [dict(r) for r in top_critical],
         "region_forecast": forecast,
+        "by_type": [dict(r) for r in by_type],
+        "by_zone": [dict(r) for r in by_zone],
+        "by_importance": [dict(r) for r in by_importance],
+        "recently_added": [dict(r) for r in recently_added],
+        "key_indicators": dict(key),
+        "condition_dynamics": condition_dynamics,
     }
 
 
@@ -327,12 +426,17 @@ def discover(limit: int = Query(50, le=100)):
 @app.post("/assistant")
 def assistant(body: dict):
     """
-    ГидроБот: принимает вопрос на естественном языке, возвращает текстовый
-    ответ + список объектов для подсветки на карте.
-    Тело: {"message": "покажи аварийные каналы старше 50 лет"}
+    ГидроБот: принимает вопрос на естественном языке (+ опционально фото),
+    возвращает текстовый ответ. Если передано изображение — оценивает состояние
+    объекта по фото. Тело: {"message": "...", "image_base64": "...", "media_type": "..."}
     """
-    from backend.assistant import ask
-    message = body.get("message", "").strip()
+    from backend.assistant import ask, ask_with_image
+    message = (body.get("message") or "").strip()
+    image_b64 = body.get("image_base64")
+
+    if image_b64:
+        return ask_with_image(message, image_b64, body.get("media_type", "image/jpeg"))
+
     if not message:
         raise HTTPException(status_code=400, detail="Пустой запрос")
     return ask(message)
@@ -367,6 +471,7 @@ def report(lang: str = Query("ru", description="ru | kz | en")):
     """
     from backend.report import generate_report
     pdf = generate_report(lang)
+    _log_report("pdf", lang)
     return Response(
         content=pdf,
         media_type="application/pdf",
@@ -422,11 +527,48 @@ def export_excel(
     """Выгружает объекты в форматированный Excel-файл с цветовой разметкой."""
     from backend.export_excel import export_objects_xlsx
     data = export_objects_xlsx(category=category, type_code=type_code)
+    _log_report("excel", None)
     return Response(
         content=data,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": 'attachment; filename="hydro_objects.xlsx"'},
     )
+
+
+# ── /export/inspections (выгрузка ПЛАНА ОСМОТРОВ, не каталога) ────────────────
+
+@app.get("/export/inspections")
+def export_inspections():
+    """
+    Выгружает именно план осмотров: лист просроченных осмотров и
+    полный план ближайших осмотров по всем объектам. Это не общий
+    каталог объектов, а рабочий документ для инспектора.
+    """
+    from backend.export_excel import export_inspection_plan_xlsx
+    data = export_inspection_plan_xlsx()
+    _log_report("inspection_plan", None)
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="hydro_inspection_plan.xlsx"'},
+    )
+
+
+# ── /reports/history (история сформированных отчётов) ─────────────────────────
+
+@app.get("/reports/history")
+def reports_history(limit: int = Query(30, le=100)):
+    """Возвращает журнал последних сформированных отчётов/выгрузок."""
+    conn = get_db()
+    _ensure_report_log(conn)
+    rows = conn.execute("""
+        SELECT id, kind, lang, created_at
+        FROM report_log
+        ORDER BY id DESC
+        LIMIT ?
+    """, (limit,)).fetchall()
+    conn.close()
+    return {"items": [dict(r) for r in rows]}
 
 
 # ── /inspections/overdue (просроченные осмотры) ──────────────────────────────
@@ -547,4 +689,5 @@ def get_photo(filename: str):
     path = os.path.join(PHOTOS_DIR, safe)
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Фото не найдено")
-    return FileResponse(path)
+    media = "image/svg+xml" if safe.lower().endswith(".svg") else None
+    return FileResponse(path, media_type=media)
