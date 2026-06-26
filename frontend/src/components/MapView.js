@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap, useMapEvents, LayersControl } from "react-leaflet";
 import { categoryColor } from "../constants";
 import { useApp, catLabel } from "../AppContext";
@@ -13,9 +13,12 @@ const DISCOVER_COLORS = { new: "#38bdf8", unverified: "#eab308" };
 
 function FlyTo({ target }) {
   const map = useMap();
-  if (target) {
-    map.flyTo([target.lat, target.lon], 11, { duration: 0.8 });
-  }
+  useEffect(() => {
+    if (target) {
+      // Только смещаем карту к объекту, сохраняя текущий масштаб пользователя.
+      map.panTo([target.lat, target.lon], { animate: true, duration: 0.8 });
+    }
+  }, [target, map]);
   return null;
 }
 
@@ -37,22 +40,30 @@ export default function MapView({
   // Маркеры объектов — вне LayersControl, иначе react-leaflet v4 их скрывает
   const markers = useMemo(
     () =>
-      objects.map((o) => (
+      objects.map((o) => {
+        const unverified = o.is_verified === 0;
+        return (
         <CircleMarker
           key={o.id}
           center={[o.lat, o.lon]}
-          radius={selectedId === o.id ? 9 : 6}
+          radius={selectedId === o.id ? 9 : (unverified ? 7 : 6)}
           pathOptions={{
-            color: selectedId === o.id ? "#ffffff" : categoryColor(o.category),
-            weight: selectedId === o.id ? 2 : 1,
+            color: selectedId === o.id ? "#ffffff" : (unverified ? "#eab308" : categoryColor(o.category)),
+            weight: selectedId === o.id ? 2 : (unverified ? 2 : 1),
             fillColor: categoryColor(o.category),
             fillOpacity: 0.85,
+            dashArray: unverified ? "4 3" : null,
           }}
           eventHandlers={{ click: () => onSelect(o.id) }}
         >
           <Popup>
             <div style={{ minWidth: 180 }}>
               <strong>{o.name}</strong>
+              {unverified && (
+                <div style={{ marginTop: 4, fontSize: 11, fontWeight: 600, color: "#b78a00" }}>
+                  ⚠ {t("unverifiedBadge")}
+                </div>
+              )}
               <div style={{ marginTop: 6, fontSize: 13 }}>
                 <span style={{
                   display: "inline-block", width: 8, height: 8, borderRadius: "50%",
@@ -66,7 +77,8 @@ export default function MapView({
             </div>
           </Popup>
         </CircleMarker>
-      )),
+        );
+      }),
     [objects, selectedId, onSelect, t]
   );
 
@@ -115,15 +127,6 @@ export default function MapView({
           <TileLayer
             attribution='&copy; Esri'
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          />
-        </BaseLayer>
-        <BaseLayer name="Спутник + подписи">
-          <TileLayer
-            attribution='&copy; Esri'
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          />
-          <TileLayer
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
           />
         </BaseLayer>
       </LayersControl>

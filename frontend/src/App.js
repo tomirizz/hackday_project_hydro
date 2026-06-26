@@ -4,19 +4,17 @@ import {
 } from "./api/client";
 import MapView from "./components/MapView";
 import Filters from "./components/Filters";
-import ObjectList from "./components/ObjectList";
 import ObjectCard from "./components/ObjectCard";
 import Dashboard from "./components/Dashboard";
 import HydroBot from "./components/HydroBot";
 import DiscoverPanel from "./components/DiscoverPanel";
 import AddObjectPanel from "./components/AddObjectPanel";
-import MapLegend from "./components/MapLegend";
 import OverduePanel from "./components/OverduePanel";
 import { useApp } from "./AppContext";
 import { LANGUAGES } from "./i18n";
 import {
   Droplets, Map as MapIcon, BarChart3, Flame, Bot, Menu, Sun, Moon,
-  Radar, Search, AlertTriangle, Maximize2, Minimize2, Plus, X, Clock,
+  Radar, Search, Maximize2, Minimize2, Plus, X, Clock,
 } from "lucide-react";
 
 export default function App() {
@@ -48,9 +46,6 @@ export default function App() {
   const [showOverdue, setShowOverdue] = useState(false);
   const [overdueCount, setOverdueCount] = useState(null);
   const [fullscreen, setFullscreen] = useState(false);
-  const [stats, setStats] = useState(null);
-  const [threatCount, setThreatCount] = useState(null);
-  const [showThreatBanner, setShowThreatBanner] = useState(true);
 
   // Добавление объекта
   const [showAddObject, setShowAddObject] = useState(false);
@@ -73,17 +68,12 @@ export default function App() {
     return () => { cancelled = true; };
   }, [filters, t]);
 
-  // Статистика и прогноз для шапки/баннера (один раз)
+  // Точки тепловой карты + счётчик просроченных осмотров (один раз)
   useEffect(() => {
     fetchDashboard().then((d) => {
-      setStats(d.metrics);
       setHeatPoints(d.heat_points || []);
     }).catch(() => {});
-    // прогноз угрозы
     import("./api/client").then(({ default: client }) => {
-      client.get("/forecast", { params: { years: 10 } })
-        .then((r) => setThreatCount(r.data.will_become_critical))
-        .catch(() => {});
       // количество просроченных осмотров
       client.get("/inspections/overdue")
         .then((r) => setOverdueCount(r.data.total))
@@ -245,31 +235,6 @@ export default function App() {
         )}
 
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-          {/* Статистика в реальном времени */}
-          {stats && (
-            <div className="header-stats" style={{ display: "flex", gap: 12, fontSize: 12 }}>
-              <span style={{ color: "var(--c-critical)", display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--c-critical)" }} />
-                {stats.critical_count} {t("statCritical")}
-              </span>
-              <span style={{ color: "var(--c-repair)", display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--c-repair)" }} />
-                {stats.repair_count} {t("statRepair")}
-              </span>
-              {threatCount != null && (
-                <span style={{ color: "var(--text-dim)", display: "flex", alignItems: "center", gap: 4 }}>
-                  <AlertTriangle size={12} /> {threatCount} {t("statThreat")}
-                </span>
-              )}
-              {overdueCount != null && overdueCount > 0 && (
-                <span style={{ color: "var(--c-repair)", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}
-                      onClick={() => { setTab("map"); setShowOverdue(true); }}>
-                  <Clock size={12} /> {overdueCount} {t("overdueBanner")}
-                </span>
-              )}
-            </div>
-          )}
-
           {/* Язык */}
           <div style={{ display: "flex", gap: 2, background: "var(--panel-2)", borderRadius: 6, padding: 2 }}>
             {LANGUAGES.map((l) => (
@@ -314,16 +279,8 @@ export default function App() {
               width: 300, flexShrink: 0, display: "flex", flexDirection: "column",
               background: "var(--panel)", borderRight: "1px solid var(--border)",
             }}>
-              <div style={{ overflowY: "auto", flexShrink: 0 }}>
+              <div style={{ overflowY: "auto", flex: 1 }}>
                 <Filters filters={filters} setFilters={setFilters} total={total} />
-              </div>
-              <div style={{ borderTop: "1px solid var(--border)", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-                <div style={{ padding: "10px 14px", fontSize: 11, textTransform: "uppercase",
-                              letterSpacing: "0.05em", color: "var(--text-dim)" }}>
-                  {t("objectsList")}
-                </div>
-                <ObjectList objects={displayedObjects} selectedId={selectedId}
-                            onSelect={(id) => { handleSelect(id); setMobileSidebar(false); }} />
               </div>
             </aside>
           )}
@@ -341,28 +298,6 @@ export default function App() {
               onPickCoords={handlePickCoords}
               pickedCoords={pickedCoords}
             />
-
-            <MapLegend />
-
-            {/* Баннер угрозы */}
-            {showThreatBanner && threatCount != null && threatCount > 0 && (
-              <div className="threat-glow" style={{
-                position: "absolute", bottom: 16, right: 16, zIndex: 1000, maxWidth: 320,
-                display: "flex", alignItems: "center", gap: 10,
-                background: "var(--panel)", border: "1px solid var(--c-critical)",
-                borderRadius: 8, padding: "10px 14px",
-              }}>
-                <AlertTriangle size={18} color="var(--c-critical)" style={{ flexShrink: 0 }} />
-                <span style={{ fontSize: 12, lineHeight: 1.4 }}>
-                  {t("threatBanner").replace("{n}", threatCount)}
-                </span>
-                <button onClick={() => setShowThreatBanner(false)} style={{
-                  background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", padding: 2, flexShrink: 0,
-                }}>
-                  <X size={14} />
-                </button>
-              </div>
-            )}
 
             {/* Баннер фильтра ГидроБота / поиска */}
             {(botFilterIds || searchedObjects) && (

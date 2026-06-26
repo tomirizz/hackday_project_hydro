@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { categoryColor } from "../constants";
-import { X, Share2 } from "lucide-react";
+import { X, Share2, AlertCircle } from "lucide-react";
 import { useApp, catLabel, typeLabel } from "../AppContext";
 import ForecastChart from "./ForecastChart";
 import InspectionsJournal from "./InspectionsJournal";
@@ -62,6 +62,16 @@ export default function ObjectCard({ object, onClose }) {
             <span style={{ width: 10, height: 10, borderRadius: "50%", background: color }} />
             <span style={{ fontSize: 13, color }}>{catLabel(t, o.category)}</span>
           </div>
+          {o.is_verified === 0 && (
+            <div title={t("unverifiedHint")} style={{
+              marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6,
+              background: "rgba(234,179,8,0.15)", border: "1px solid #eab308",
+              color: "#eab308", borderRadius: 6, padding: "3px 8px",
+              fontSize: 11, fontWeight: 600,
+            }}>
+              <AlertCircle size={13} /> {t("unverifiedBadge")}
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", gap: 4 }}>
           <button onClick={handleShare} title={t("shareObject")} style={{
@@ -89,6 +99,10 @@ export default function ObjectCard({ object, onClose }) {
       )}
 
       <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+        <PhotoGallery objectId={o.id} />
+      </div>
+
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
                       color: "var(--text-dim)", marginBottom: 8 }}>
           {t("riskIndex")}
@@ -102,26 +116,52 @@ export default function ObjectCard({ object, onClose }) {
           </span>
         </div>
 
-        {o.risk_factors && (
-          <div style={{ marginTop: 12 }}>
-            {[
-              [t("riskFactorState"), o.risk_factors.state, 0.45],
-              [t("riskFactorAge"), o.risk_factors.age, 0.25],
-              [t("riskFactorWear"), o.risk_factors.wear, 0.20],
-              [t("riskFactorKpd"), o.risk_factors.kpd, 0.10],
-            ].map(([label, val, max]) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-                <span style={{ fontSize: 11, color: "var(--text-dim)", width: 110, flexShrink: 0 }}>{label}</span>
-                <div style={{ flex: 1, height: 4, background: "var(--panel-2)", borderRadius: 2, overflow: "hidden" }}>
-                  <div style={{ width: `${(val / max) * 100}%`, height: "100%", background: "var(--accent)" }} />
-                </div>
-                <span className="mono" style={{ fontSize: 10, color: "var(--text-dim)", width: 32, textAlign: "right" }}>
-                  {(val * 100).toFixed(0)}
-                </span>
+        {o.risk_factors && (() => {
+          const FCOL = { state: "#ef4444", age: "#f59e0b", wear: "#8b5cf6", kpd: "#38bdf8" };
+          const factors = [
+            { key: "state", label: t("riskFactorState"), val: o.risk_factors.state || 0 },
+            { key: "age",   label: t("riskFactorAge"),   val: o.risk_factors.age   || 0 },
+            { key: "wear",  label: t("riskFactorWear"),  val: o.risk_factors.wear  || 0 },
+            { key: "kpd",   label: t("riskFactorKpd"),   val: o.risk_factors.kpd   || 0 },
+          ];
+          const totalPts = Math.round((o.risk_score || 0) * 100);
+          return (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 7 }}>
+                {t("riskCompositionHint")}
               </div>
-            ))}
-          </div>
-        )}
+              {/* Стек-бар: длина сегментов в сумме равна индексу риска */}
+              <div style={{ display: "flex", width: "100%", height: 14, borderRadius: 7,
+                            overflow: "hidden", background: "var(--panel-2)" }}>
+                {factors.map((f) => f.val > 0 ? (
+                  <div key={f.key} title={`${f.label}: +${Math.round(f.val * 100)}`}
+                       style={{ width: `${f.val * 100}%`, height: "100%", background: FCOL[f.key] }} />
+                ) : null)}
+              </div>
+              {/* Легенда: вклад каждого фактора в баллах */}
+              <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "7px 14px" }}>
+                {factors.map((f) => (
+                  <div key={f.key} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12 }}>
+                    <span style={{ width: 9, height: 9, borderRadius: 2, background: FCOL[f.key], flexShrink: 0 }} />
+                    <span style={{ color: "var(--text-dim)", flex: 1, minWidth: 0,
+                                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {f.label}
+                    </span>
+                    <span className="mono" style={{ fontWeight: 600,
+                          color: f.val > 0 ? "var(--text)" : "var(--text-dim)" }}>
+                      {f.val > 0 ? `+${Math.round(f.val * 100)}` : "0"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 9, paddingTop: 8, borderTop: "1px solid var(--border)",
+                            display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <span style={{ color: "var(--text-dim)" }}>{t("riskCompositionTotal")}</span>
+                <span className="mono" style={{ fontWeight: 700 }}>{totalPts}</span>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       <div style={{ padding: "8px 20px" }}>
@@ -160,10 +200,6 @@ export default function ObjectCard({ object, onClose }) {
           {t("cardForecast")}
         </div>
         <ForecastChart objectId={o.id} />
-      </div>
-
-      <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)" }}>
-        <PhotoGallery objectId={o.id} />
       </div>
 
       <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)" }}>

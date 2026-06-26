@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { fetchOverdue, excelUrl } from "../api/client";
+import { fetchOverdue, inspectionPlanUrl } from "../api/client";
 import { categoryColor } from "../constants";
 import { useApp } from "../AppContext";
 import { Clock, X, FileSpreadsheet } from "lucide-react";
@@ -33,7 +33,7 @@ export default function OverduePanel({ onSelect, onClose }) {
 
       {data && data.total > 0 && (
         <a
-          href={excelUrl()}
+          href={inspectionPlanUrl()}
           target="_blank"
           rel="noopener noreferrer"
           style={{

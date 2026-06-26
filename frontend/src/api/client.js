@@ -45,8 +45,13 @@ export async function nearbyObjects(lat, lon, radiusM = 500) {
   return data;
 }
 
-export async function askAssistant(message) {
-  const { data } = await client.post("/assistant", { message });
+export async function askAssistant(message, image = null) {
+  const payload = { message };
+  if (image) {
+    payload.image_base64 = image.base64;
+    payload.media_type = image.mediaType;
+  }
+  const { data } = await client.post("/assistant", payload);
   return data;
 }
 
@@ -84,7 +89,7 @@ export async function uploadPhoto(objectId, imageBase64, mediaType) {
   const { data } = await client.post(`/objects/${objectId}/photos`, {
     image_base64: imageBase64,
     media_type: mediaType,
-    analyze: true,
+    analyze: false,
   });
   return data;
 }
@@ -100,6 +105,15 @@ export async function addInspection(objectId, payload) {
 
 export function reportUrl(lang = "ru") {
   return `${API_BASE}/report?lang=${lang}`;
+}
+
+export function inspectionPlanUrl() {
+  return `${API_BASE}/export/inspections`;
+}
+
+export async function fetchReportHistory() {
+  const { data } = await client.get("/reports/history");
+  return data;
 }
 
 export function excelUrl(category = null, typeCode = null) {

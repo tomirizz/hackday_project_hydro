@@ -24,7 +24,20 @@ export default function DrillModal({ drill, onClose }) {
         } else if (drill.type === "decade") {
           const d = drill.value;
           items = items.filter((o) => o.year_built != null && o.year_built >= d && o.year_built < d + 10);
+        } else if (drill.type === "type") {
+          items = items.filter((o) => o.type_code === drill.value);
+        } else if (drill.type === "importance") {
+          items = items.filter((o) => {
+            const imp = o.importance ?? 0;
+            if (drill.value === "republican") return imp >= 0.5;
+            if (drill.value === "regional") return imp >= 0.25 && imp < 0.5;
+            return imp < 0.25;
+          });
+        } else if (drill.type === "zone") {
+          const [min, max] = drill.range;
+          items = items.filter((o) => o.lon != null && o.lon >= min && o.lon < max);
         }
+        // drill.type === "all" -> без фильтра (показываем все объекты)
         items.sort((a, b) => b.risk_score - a.risk_score);
         setObjects(items);
       })
